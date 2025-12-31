@@ -1,0 +1,386 @@
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local Debris = game:GetService("Debris")
+
+local plr = Players.LocalPlayer
+local SCRIPT_ID = "Moveset_" .. tick() .. "_" .. math.random(1000, 9999)
+local activeConnections = {}
+local activeObjects = {}
+local isAlive = true
+
+local function cleanup()
+    if not isAlive then return end
+    isAlive = false
+    print("[Moveset Script] Self-destructing: new instance detected")
+    
+    for _, connection in pairs(activeConnections) do
+        if connection then
+            pcall(function() connection:Disconnect() end)
+        end
+    end
+    
+    for _, object in pairs(activeObjects) do
+        if object and object.Parent then
+            pcall(function() object:Destroy() end)
+        end
+    end
+    
+    activeConnections = {}
+    activeObjects = {}
+    local terrain = workspace:FindFirstChildOfClass("Terrain")
+    if terrain then
+        local marker = terrain:FindFirstChild("MovesetMarker")
+        if marker and marker.Value == SCRIPT_ID then
+            marker:Destroy()
+        end
+    end
+end
+
+local function registerConnection(conn)
+    if not isAlive then 
+        conn:Disconnect()
+        return conn 
+    end
+    table.insert(activeConnections, conn)
+    return conn
+end
+
+local function registerObject(obj)
+    if not isAlive then 
+        if obj and obj.Parent then
+            obj:Destroy()
+        end
+        return obj 
+    end
+    table.insert(activeObjects, obj)
+    return obj
+end
+
+local function setupMarkerControl()
+    local terrain = workspace:FindFirstChildOfClass("Terrain")
+    if not terrain then return end
+    
+    for _, child in pairs(terrain:GetChildren()) do
+        if child.Name == "MovesetMarker" and child:IsA("StringValue") then
+            child:Destroy()
+        end
+    end
+    
+    local marker = Instance.new("StringValue")
+    marker.Name = "MovesetMarker"
+    marker.Value = SCRIPT_ID
+    marker.Parent = terrain
+    registerObject(marker)
+    
+    Debris:AddItem(marker, 30)
+    
+    local connection = terrain.ChildAdded:Connect(function(child)
+        if child.Name == "MovesetMarker" and child:IsA("StringValue") then
+            if child.Value ~= SCRIPT_ID then
+                cleanup()
+            end
+        end
+    end)
+    registerConnection(connection)
+    
+    return marker
+end
+
+setupMarkerControl()
+
+local CFG = {
+    spread = {
+        enabled = true,
+        maxAngle = 30, 
+        minAngle = 10, 
+        skills = {
+            ["Naruhaya Shot"] = true, 
+            ["MY AHH SHOT"] = true
+        }
+    },
+    renames = {
+        ["skill1"] = "Naruhaya Shot", 
+        ["skill2"] = "Foot Work", 
+        ["skill3"] = "MY AHH SHOT"
+    }
+}
+
+local moveDebounce = false
+local spreadTracker = {}
+local lastSkillTime = 0
+local SKILL_COOLDOWN = 0.1
+
+local function getSkillInfo(slot)
+    local hotbar = plr.PlayerGui and plr.PlayerGui:FindFirstChild("Hotbar")
+    if not hotbar then return false, nil end
+    
+    local backpack = hotbar:FindFirstChild("Backpack")
+    if not backpack then return false, nil end
+    
+    local hotbarFrame = backpack:FindFirstChild("Hotbar")
+    if not hotbarFrame then return false, nil end
+    
+    local skillFrame = hotbarFrame:FindFirstChild("skill" .. slot)
+    if not skillFrame then return false, nil end
+    
+    local base = skillFrame:FindFirstChild("Base")
+    if not base then return false, nil end
+    
+    local toolName = base:FindFirstChild("ToolName")
+    if not toolName then return false, nil end
+    
+    local cooldown = skillFrame:FindFirstChild("Cooldown")
+    
+    return not (cooldown and cooldown.Visible), toolName.Text
+end
+
+local function applyVelocity(part, speed, duration)
+    if not part or not isAlive or not part.Parent then return nil end
+    
+    for _, v in pairs(part:GetChildren()) do
+        if v:IsA("BodyVelocity") then
+            registerObject(v)
+            v:Destroy()
+        end
+    end
+
+    local bv = Instance.new("BodyVelocity")
+    bv.MaxForce = Vector3.new(350000, 0, 350000)
+    bv.Velocity = part.CFrame.LookVector * speed
+    bv.Parent = part
+    registerObject(bv)
+    
+    task.delay(duration, function()
+        if bv and bv.Parent then
+            bv:Destroy()
+        end
+    end)
+    
+    return bv
+end
+
+local function applySpread()
+    if not CFG.spread.enabled then return end
+    if not isAlive then return end
+    
+    local camera = workspace.CurrentCamera
+    if not camera then return end
+    
+    local yawSpread = 0
+    local pitchSpread = 0
+    
+    yawSpread = math.rad(math.random(-CFG.spread.maxAngle, CFG.spread.maxAngle))
+    if math.abs(yawSpread) < math.rad(CFG.spread.minAngle) then
+        yawSpread = math.rad(CFG.spread.minAngle) * (math.random() > 0.5 and 1 or -1)
+    end
+    
+    pitchSpread = math.rad(math.random(-CFG.spread.maxAngle, CFG.spread.maxAngle))
+    if math.abs(pitchSpread) < math.rad(CFG.spread.minAngle) then
+        pitchSpread = math.rad(CFG.spread.minAngle) * (math.random() > 0.5 and 1 or -1)
+    end
+    
+    if yawSpread ~= 0 or pitchSpread ~= 0 then
+        local yawRotation = CFrame.Angles(0, yawSpread, 0)
+        local cameraRight = camera.CFrame.RightVector
+        local pitchRotation = CFrame.fromAxisAngle(cameraRight, pitchSpread)
+        camera.CFrame = camera.CFrame * yawRotation * pitchRotation
+        
+        print(string.format("[Spread] Applied: Yaw %.1f°, Pitch %.1f°", math.deg(yawSpread), math.deg(pitchSpread)))
+    end
+end
+
+local function isStunned(character)
+    if not character then return true end
+    
+    local state = character:FindFirstChild("state")
+    if state then
+        local stun = state:FindFirstChild("stun")
+        if stun and stun.Value == true then
+            return true
+        end
+    end
+    
+    return false
+end
+
+local function handleInput(input, gpe)
+    if gpe then return end
+    if not isAlive then return end
+    
+    local currentTime = tick()
+    if currentTime - lastSkillTime < SKILL_COOLDOWN then return end
+    
+    local char = plr.Character
+    if not char then return end
+    if isStunned(char) then return end
+    
+    local slot
+    if input.KeyCode == Enum.KeyCode.One then
+        slot = 1
+    elseif input.KeyCode == Enum.KeyCode.Two then
+        slot = 2
+    elseif input.KeyCode == Enum.KeyCode.Three then
+        slot = 3
+    else
+        return
+    end
+    
+    lastSkillTime = currentTime
+    
+    local ready, name = getSkillInfo(slot)
+    if not ready or not name then return end
+    
+    if CFG.spread.enabled and CFG.spread.skills[name] and not spreadTracker[slot] then
+        spreadTracker[slot] = true
+        if name == "Naruhaya Shot" then 
+            task.wait(0.35) 
+        end
+        applySpread()
+    end
+    
+    if name == "Foot Work" and not moveDebounce then
+        moveDebounce = true
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if root then
+            applyVelocity(root, 80, 0.5)
+            task.wait(0.05)
+            applyVelocity(root, 150, 0.5)
+            task.wait(0.1)
+            applyVelocity(root, 170, 0.5)
+            task.wait(0.1)
+            applyVelocity(root, 200, 0.5)
+            task.wait(0.1)
+            applyVelocity(root, 220, 0.2)
+        end
+        task.delay(0.4, function() 
+            moveDebounce = false 
+        end)
+    end
+end
+
+local function load(char)
+    if not isAlive then return end
+    if not char then return end
+    
+    task.wait(1)
+    
+    repeat task.wait() until plr.Team and plr.Team.Name ~= "lobby"
+    task.wait(0.5)
+    
+    local hotbar = plr.PlayerGui:WaitForChild("Hotbar", 10)
+    if hotbar and isAlive then
+        local backpack = hotbar:FindFirstChild("Backpack")
+        if backpack then
+            local hotbarFrame = backpack:FindFirstChild("Hotbar")
+            if hotbarFrame then
+                for slotName, newName in pairs(CFG.renames) do
+                    local skillFrame = hotbarFrame:FindFirstChild(slotName)
+                    if skillFrame then
+                        local base = skillFrame:FindFirstChild("Base")
+                        if base then
+                            local toolName = base:FindFirstChild("ToolName")
+                            if toolName then
+                                toolName.Text = newName
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    local rep = game:GetService("ReplicatedStorage")
+    if rep and isAlive then
+        local resources = rep:FindFirstChild("Resources")
+        if resources then
+            local shidou = resources:FindFirstChild("shidou")
+            if shidou then
+                local themes = shidou:FindFirstChild("NEWthemes")
+                if themes then
+                    themes.SoundId = "rbxassetid://101265113960897"
+                end
+                local ult = shidou:FindFirstChild("NEWshidouUlt")
+                if ult then
+                    ult.AnimationId = "rbxassetid://101997402253776"
+                end
+            end
+        end
+    end
+end
+
+registerConnection(UIS.InputBegan:Connect(handleInput))
+registerConnection(plr.CharacterAdded:Connect(function(char)
+    if isAlive then
+        load(char)
+    end
+end))
+
+if plr.Character and isAlive then
+    task.spawn(function()
+        if isAlive then
+            load(plr.Character)
+        end
+    end)
+end
+
+task.spawn(function()
+    while isAlive do
+        for i = 1, 3 do
+            local ready, name = getSkillInfo(i)
+            if not ready then
+                spreadTracker[i] = false
+            end
+        end
+        task.wait(0.5)
+    end
+end)
+
+task.spawn(function()
+    while isAlive do
+        local terrain = workspace:FindFirstChildOfClass("Terrain")
+        if terrain then
+            local markers = {}
+            for _, child in pairs(terrain:GetChildren()) do
+                if child.Name == "MovesetMarker" and child:IsA("StringValue") then
+                    table.insert(markers, child)
+                end
+            end
+            
+            if #markers > 1 then
+                local latestTime = 0
+                local latestMarker = nil
+                
+                for _, marker in pairs(markers) do
+                    local markerTime = tonumber(string.match(marker.Value, "Moveset_(%d+%.%d+)_")) or 0
+                    if markerTime > latestTime then
+                        latestTime = markerTime
+                        latestMarker = marker
+                    end
+                end
+                
+                if latestMarker and latestMarker.Value ~= SCRIPT_ID then
+                    cleanup()
+                    break
+                end
+            end
+        end
+        task.wait(5)
+    end
+end)
+
+registerConnection(game.Players.PlayerRemoving:Connect(function(player)
+    if player == plr then
+        cleanup()
+    end
+end))
+
+game.StarterGui:SetCore("SendNotification", {
+    Title = "Loaded",
+    Text = "brought by daffy! modified by Opca102",
+    Duration = 5,
+    Button1 = "OK",
+})
+
+print("[Moveset Script] Successfully loaded with ID: " .. SCRIPT_ID)
+print("[System] Spread enabled: " .. tostring(CFG.spread.enabled))
+print("[System] Max spread angle: " .. CFG.spread.maxAngle .. "°")
