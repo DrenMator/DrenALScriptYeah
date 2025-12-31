@@ -1,7 +1,7 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 -- Загружаем скрипт и сохраняем функцию
-local FootballScript = loadstring(game:HttpGet("https://github.com/DrenMator/DrenALScriptYeah/blob/main/StylezBuff.txt",true))()
+local FootballScript = loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/StylezBuff.txt",true))()
 
 local Window = Rayfield:CreateWindow({
    Name = "Dren's AL Script",
@@ -54,7 +54,7 @@ local Divider = MainTab:CreateDivider()
 local NaruhayaMovesetButton = MovesetsTab:CreateButton({
    Name = "Naruhaya (needs isagi)",
    Callback = function()
-      loadstring(game:HttpGet("https://github.com/DrenMator/DrenALScriptYeah/blob/main/NaruhayaMoveset.txt",true))()
+      loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/NaruhayaMoveset.txt",true))()
    end,
 })
 local Divider = MovesetsTab:CreateDivider()
