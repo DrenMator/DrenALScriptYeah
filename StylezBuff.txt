@@ -1,0 +1,924 @@
+local function FootballScript(enable)
+    enable = enable ~= false -- Default to true if not specified
+    
+    local RunService = game:GetService("RunService")
+    local Players = game:GetService("Players")
+    local Debris = game:GetService("Debris")
+    local LocalPlayer = Players.LocalPlayer
+
+    -- Generate unique script ID
+    local SCRIPT_ID = "ExploitScript_" .. tick() .. "_" .. math.random(1000, 9999)
+    local IS_NEW_INSTANCE = false
+
+    -- Create identification marker in Terrain (stealth mode)
+    local function setupScriptControl()
+        local terrain = workspace:FindFirstChildOfClass("Terrain")
+        if not terrain then return end
+        
+        -- Look for existing script markers
+        for _, child in pairs(terrain:GetChildren()) do
+            if child.Name == "LocalCheck" and child:IsA("StringValue") then
+                -- Found old script - delete it and mark as old instance
+                child:Destroy()
+                IS_NEW_INSTANCE = false
+            end
+        end
+        
+        -- Create our own marker
+        local ourMarker = Instance.new("StringValue")
+        ourMarker.Name = "LocalCheck"
+        ourMarker.Value = SCRIPT_ID
+        ourMarker.Parent = terrain
+        
+        -- Auto-delete marker after 5 seconds (cleanup)
+        Debris:AddItem(ourMarker, 5)
+        IS_NEW_INSTANCE = true
+        
+        return ourMarker
+    end
+
+    -- 📦 CORE VARIABLES - KEEP TRACK OF EVERYTHING
+    local activeConnections = {}
+    local activeVelocityInstances = {}
+    local moveDebounce = false
+    local lastSkillActivation = 0
+    local SKILL_COOLDOWN = 0.1 -- Minimum time between skill activations
+    
+    -- 🔄 SKILL UPDATE DEBOUNCE SYSTEM
+    local skillUpdateDebounce = false
+    local SKILL_UPDATE_DELAY = 0 -- 0 seconds debounce
+
+    -- 🧹 CLEANUP FUNCTION - KILL THIS SCRIPT PROPERLY
+    local function selfDestruct(reason)
+        print("[SCRIPT] Self-destructing: " .. (reason or "New instance detected"))
+        
+        -- Disconnect all event connections
+        for _, connection in pairs(activeConnections) do
+            if connection then
+                pcall(function() connection:Disconnect() end)
+            end
+        end
+        
+        -- Clean up all velocity instances
+        for _, instance in pairs(activeVelocityInstances) do
+            if instance and instance.Parent then
+                instance:Destroy()
+            end
+        end
+        
+        -- Clear variables
+        activeConnections = {}
+        activeVelocityInstances = {}
+        
+        -- Remove our marker if it still exists
+        local terrain = workspace:FindFirstChildOfClass("Terrain")
+        if terrain then
+            local marker = terrain:FindFirstChild("LocalCheck")
+            if marker and marker.Value == SCRIPT_ID then
+                marker:Destroy()
+            end
+        end
+        
+        return true
+    end
+
+    -- 🔍 MONITOR FOR NEW SCRIPTS
+    local function monitorForNewInstances()
+        local terrain = workspace:FindFirstChildOfClass("Terrain")
+        if not terrain then return end
+        
+        local connection
+        connection = terrain.ChildAdded:Connect(function(child)
+            if child.Name == "LocalCheck" and child:IsA("StringValue") then
+                if child.Value ~= SCRIPT_ID then
+                    -- Another script is trying to run - self destruct
+                    connection:Disconnect()
+                    selfDestruct("Another script launched")
+                end
+            end
+        end)
+        
+        table.insert(activeConnections, connection)
+    end
+
+    -- 🚀 SETUP SCRIPT CONTROL SYSTEM
+    setupScriptControl()
+    monitorForNewInstances()
+
+    -- Only continue if we're the new instance
+    if not IS_NEW_INSTANCE then
+        selfDestruct("Old instance detected")
+        return
+    end
+
+    -- If enable is false, just clean up and exit
+    if not enable then
+        print("[SCRIPT] Disabled mode - cleaning up old instances")
+        selfDestruct("Disabled by user")
+        return
+    end
+
+    -- 🔔 NOTIFICATION SYSTEM
+    local function sendAlert(title, message, duration, button)
+        local success, result = pcall(function()
+            game.StarterGui:SetCore("SendNotification", {
+                Title = title or "Alert",
+                Text = message or "Message",
+                Duration = duration or 5,
+                Button1 = button or "OK",
+            })
+        end)
+        
+        if not success then
+            warn("[ALERT FAILED]: " .. tostring(result))
+        end
+    end
+
+    -- 🧭 EXPANDED DIRECTION SYSTEM WITH 16 DIFFERENT DIRECTIONS
+    local DIRECTION = {
+        -- Basic 4 directions
+        FORWARD = "Forward",
+        BACKWARD = "Backward", 
+        LEFT = "Left",
+        RIGHT = "Right",
+        
+        -- Diagonal directions (45° angles)
+        FORWARD_RIGHT = "ForwardRight",
+        FORWARD_LEFT = "ForwardLeft",
+        BACKWARD_RIGHT = "BackwardRight",
+        BACKWARD_LEFT = "BackwardLeft",
+        
+        -- Vertical directions
+        UP = "Up",
+        DOWN = "Down",
+        
+        -- Vertical + horizontal combos
+        UP_FORWARD = "UpForward",
+        UP_BACKWARD = "UpBackward",
+        UP_LEFT = "UpLeft",
+        UP_RIGHT = "UpRight",
+        DOWN_FORWARD = "DownForward",
+        DOWN_BACKWARD = "DownBackward",
+        DOWN_LEFT = "DownLeft",
+        DOWN_RIGHT = "DownRight"
+    }
+
+    -- 🚀 IMPROVED VELOCITY APPLICATION FUNCTION WITH ADVANCED DIRECTION CONTROL
+    local function applyVelocity(part, speed, duration, startAtZero, easingStyle, delayStart, customDelay, direction)
+        if not part or not part.Parent then return nil end
+        
+        -- Clean up existing velocity effects on this part
+        for _, child in ipairs(part:GetChildren()) do
+            if child:IsA("BodyVelocity") then
+                child:Destroy()
+            end
+        end
+
+        -- Create new velocity instance
+        local bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.MaxForce = Vector3.new(350000, 350000, 350000) -- Allow vertical movement too
+        bodyVelocity.Parent = part
+        table.insert(activeVelocityInstances, bodyVelocity)
+
+        -- Auto-remove after duration
+        task.delay(duration, function()
+            if bodyVelocity and bodyVelocity.Parent then
+                bodyVelocity:Destroy()
+            end
+        end)
+
+        -- Enhanced function to calculate direction vector
+        local function getDirectionVector(cframe, dir)
+            dir = dir or DIRECTION.FORWARD
+            
+            -- Get basic vectors
+            local lookVector = cframe.LookVector
+            local rightVector = cframe.RightVector
+            
+            -- Diagonal vectors (normalized)
+            local forwardRight = (lookVector + rightVector).Unit
+            local forwardLeft = (lookVector - rightVector).Unit
+            local backwardRight = (-lookVector + rightVector).Unit
+            local backwardLeft = (-lookVector - rightVector).Unit
+            
+            -- Return direction based on parameter
+            if dir == DIRECTION.FORWARD then
+                return lookVector
+            elseif dir == DIRECTION.BACKWARD then
+                return -lookVector
+            elseif dir == DIRECTION.LEFT then
+                return -rightVector
+            elseif dir == DIRECTION.RIGHT then
+                return rightVector
+            elseif dir == DIRECTION.FORWARD_RIGHT then
+                return forwardRight
+            elseif dir == DIRECTION.FORWARD_LEFT then
+                return forwardLeft
+            elseif dir == DIRECTION.BACKWARD_RIGHT then
+                return backwardRight
+            elseif dir == DIRECTION.BACKWARD_LEFT then
+                return backwardLeft
+            elseif dir == DIRECTION.UP then
+                return Vector3.new(0, 1, 0)
+            elseif dir == DIRECTION.DOWN then
+                return Vector3.new(0, -1, 0)
+            elseif dir == DIRECTION.UP_FORWARD then
+                return (lookVector + Vector3.new(0, 1, 0)).Unit
+            elseif dir == DIRECTION.UP_BACKWARD then
+                return (-lookVector + Vector3.new(0, 1, 0)).Unit
+            elseif dir == DIRECTION.UP_LEFT then
+                return (-rightVector + Vector3.new(0, 1, 0)).Unit
+            elseif dir == DIRECTION.UP_RIGHT then
+                return (rightVector + Vector3.new(0, 1, 0)).Unit
+            elseif dir == DIRECTION.DOWN_FORWARD then
+                return (lookVector + Vector3.new(0, -1, 0)).Unit
+            elseif dir == DIRECTION.DOWN_BACKWARD then
+                return (-lookVector + Vector3.new(0, -1, 0)).Unit
+            elseif dir == DIRECTION.DOWN_LEFT then
+                return (-rightVector + Vector3.new(0, -1, 0)).Unit
+            elseif dir == DIRECTION.DOWN_RIGHT then
+                return (rightVector + Vector3.new(0, -1, 0)).Unit
+            else
+                -- Default to forward if invalid direction
+                return lookVector
+            end
+        end
+
+        -- Speed tweening system
+        local speedValue = Instance.new("NumberValue")
+        speedValue.Value = startAtZero and 0 or speed
+        speedValue.Parent = bodyVelocity
+
+        -- Handle tweening for smooth speed changes
+        local function startTween()
+            local tweenInfo = TweenInfo.new(
+                duration,
+                easingStyle or Enum.EasingStyle.Linear,
+                Enum.EasingDirection.Out
+            )
+            local goal = { Value = startAtZero and 0 or speed }
+            local tween = game:GetService("TweenService"):Create(speedValue, tweenInfo, goal)
+            tween:Play()
+        end
+
+        -- Delay tween if specified
+        if customDelay then
+            task.delay(customDelay, startTween)
+        else
+            startTween()
+        end
+
+        -- Apply velocity continuously in the specified direction
+        if not delayStart then
+            local renderConnection
+            renderConnection = RunService.RenderStepped:Connect(function()
+                if not bodyVelocity or not bodyVelocity.Parent then
+                    if renderConnection then
+                        renderConnection:Disconnect()
+                    end
+                    return
+                end
+                
+                -- Get current direction vector based on parameter
+                local dirVector = getDirectionVector(part.CFrame, direction)
+                bodyVelocity.Velocity = dirVector * speedValue.Value
+            end)
+            
+            table.insert(activeConnections, renderConnection)
+        end
+
+        return bodyVelocity, speedValue
+    end
+
+    -- ⚽ BALL CHECK FUNCTION
+    local function hasBall(character)
+        return character and character:FindFirstChild("Ball") ~= nil
+    end
+
+    -- 💪 ULTIMATE CHECK FUNCTION
+    local function isUltimateActive(character)
+        return character and character:GetAttribute("FlowActive") == true
+    end
+
+    -- 🕊️ CHECK IF CHARACTER IS IN AIR
+    local function isInAir(character)
+        if not character then return false end
+        
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if not humanoid then return false end
+        
+        -- Check humanoid state
+        local state = humanoid:GetState()
+        local airStates = {
+            Enum.HumanoidStateType.Jumping,
+            Enum.HumanoidStateType.Freefall,
+            Enum.HumanoidStateType.FallingDown
+        }
+        
+        for _, airState in ipairs(airStates) do
+            if state == airState then
+                return true
+            end
+        end
+        
+        -- Additional check: if floor is not touching
+        if humanoid.FloorMaterial == Enum.Material.Air then
+            return true
+        end
+        
+        -- Check using raycast from character's root part
+        local rootPart = character:FindFirstChild("HumanoidRootPart")
+        if rootPart then
+            local raycastParams = RaycastParams.new()
+            raycastParams.FilterDescendantsInstances = {character}
+            raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+            
+            local rayOrigin = rootPart.Position
+            local rayDirection = Vector3.new(0, -5, 0) -- Raycast 5 studs down
+            local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+            
+            -- If no ground is found within 5 studs, we're in air
+            return raycastResult == nil
+        end
+        
+        return false
+    end
+
+    -- ⌛ SKILL COOLDOWN CHECKER
+    local function getSkillCooldown(slotNumber)
+        local skillFrame = LocalPlayer.PlayerGui.Hotbar.Backpack.Hotbar:FindFirstChild("skill" .. slotNumber)
+        if not skillFrame then return nil, nil end
+        
+        local cooldown = skillFrame:FindFirstChild("Cooldown")
+        local toolName = skillFrame.Base.ToolName
+        
+        if not cooldown then return nil, toolName end
+        return not cooldown.Visible, toolName -- Returns true if NOT on cooldown (ready)
+    end
+
+    -- 🔄 SKILL NAME MAPPING (LEGENDARY RENAMES)
+    local skillNameMap = {
+        ["Naruhaya Footwork"] = "Loki Dash",
+        ["Step Overs"] = "Monster Dance",
+        ["Diving Header"] = "Mega Dive",
+        ["Non-Stop Dribble"] = "Speedy Destroy",
+        ["King's Path"] = "ZigZag's Doom",
+        ["Chop Dribble"] = "Chip-Chop",
+        ["Predator Eye"] = "Lion Instinct",
+        ["Reflex Tackle"] = "Snaky Dash",
+        ["Back Heel Shot"] = "Back Heel Dash",
+        ["Draconic Rush"] = "Explosive Rush",
+        ["Serpent's Sway"] = "Sway-Way",
+        ["Fake Volley"] = "Non Volley Dash",
+        ["Zero Reset Turn"] = "One Reset Turn",
+        ["Off the ball"] = "Tricky Dribbling",
+        ["Scorpion"] = "Reaction Jump",
+        ["Speed Dribble"] = "Godly Dribbling",
+        ["Magic Pass"] = "Acrobatic pass",
+        ["Meta-Burst Point"] = "Meta Reflex",
+        ["Zombie Dribble"] = "Unpredictable Dribbling",
+        ["Raumdeuter"] = "Meta Genius Run",
+        ["Hero's Instinct"] = "Powerful Run",
+        ["Control"] = "Trap",
+        ['Occlusion Break'] = "Dribbling Barrier",
+        ['Direct Shot'] = "Direct Feint Shot",
+        ['Close Quarter Dribble'] = "Bunch of Feints",
+        ['Go-Go!'] = "Inevitable Speed",
+        ['Speedy Turn'] = "Right Feint",
+    }
+
+    -- 👤 CHARACTER LOADER WITH SKILL RENAMING & AUTO-UPDATE
+    local function loadCharacter(character)
+        if not character then return end
+        
+        task.wait(0.3)
+        repeat task.wait() until LocalPlayer.Team and LocalPlayer.Team.Name ~= "lobby"
+        task.wait(0.3)
+        
+        -- Initial skill update
+        local function updateSkills()
+            if skillUpdateDebounce then return end
+            skillUpdateDebounce = true
+            
+            for slot = 1, 5 do
+                local _, toolName = getSkillCooldown(slot)
+                if toolName and skillNameMap[toolName.Text] then
+                    toolName.Text = skillNameMap[toolName.Text]
+                end
+            end
+            
+            task.wait(SKILL_UPDATE_DELAY)
+            skillUpdateDebounce = false
+        end
+        
+        -- Update skills immediately
+        updateSkills()
+        
+        -- Monitor skill name changes with debounce
+        local hotbar = LocalPlayer.PlayerGui:FindFirstChild("Hotbar")
+        if hotbar then
+            local backpack = hotbar:FindFirstChild("Backpack")
+            if backpack then
+                local hotbarFrame = backpack:FindFirstChild("Hotbar")
+                if hotbarFrame then
+                    for slot = 1, 5 do
+                        local skillFrame = hotbarFrame:FindFirstChild("skill" .. slot)
+                        if skillFrame then
+                            local skillBase = skillFrame:FindFirstChild("Base")
+                            if skillBase then
+                                local toolName = skillBase:FindFirstChild("ToolName")
+                                if toolName then
+                                    local connection = toolName:GetPropertyChangedSignal("Text"):Connect(function()
+                                        updateSkills()
+                                    end)
+                                    table.insert(activeConnections, connection)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- 🔗 CONNECT CHARACTER ADDED EVENT
+    local charConnection = LocalPlayer.CharacterAdded:Connect(loadCharacter)
+    table.insert(activeConnections, charConnection)
+
+    -- 🎮 MAIN INPUT HANDLER FOR SKILL ACTIVATION
+    local inputConnection = game:GetService("UserInputService").InputBegan:Connect(function(input, processed)
+        if processed or not LocalPlayer.Team or LocalPlayer.Team.Name == "lobby" or moveDebounce then return end
+        
+        local currentTime = tick()
+        if currentTime - lastSkillActivation < SKILL_COOLDOWN then return end
+        lastSkillActivation = currentTime
+        
+        local character = LocalPlayer.Character
+        local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+        if not character or not rootPart or character.state.stun.Value == true then return end
+        
+        local keyMap = {
+            [Enum.KeyCode.One] = 1,
+            [Enum.KeyCode.Two] = 2,
+            [Enum.KeyCode.Three] = 3,
+            [Enum.KeyCode.Four] = 4,
+            [Enum.KeyCode.Five] = 5
+        }
+        
+        local slot = keyMap[input.KeyCode]
+        if not slot then return end
+        
+        local skillReady, toolName = getSkillCooldown(slot)
+        if not skillReady or not toolName then return end
+        
+        local skillName = toolName.Text
+        local hasBall = hasBall(character)
+        
+        -- 📋 SKILL ACTION TABLE - ALL MOVES IN ONE PLACE
+        local skillActions = {
+            ["Loki Dash"] = function()
+                moveDebounce = true
+                task.wait(0.1)
+                applyVelocity(rootPart, 225, 1, false, nil, false, nil, DIRECTION.FORWARD)
+                task.wait(0.15)
+                applyVelocity(rootPart, 650, 1, false, nil, false, nil, DIRECTION.FORWARD)
+                task.delay(0.4, function() moveDebounce = false end)
+            end,
+
+            ["Direct Feint Shot"] = function()
+                moveDebounce = true
+                task.wait(0.05)
+                applyVelocity(rootPart, 75, 0.25, false, nil, false, nil, DIRECTION.BACKWARD_RIGHT)
+                task.wait(0.1)
+                applyVelocity(rootPart, 120, 0.15, false, nil, false, nil, DIRECTION.LEFT)
+                task.delay(0.4, function() moveDebounce = false end)
+            end,
+            
+            ["Monster Dance"] = function()
+                if hasBall then
+                    moveDebounce = true
+                    task.wait(0.05)
+                    applyVelocity(rootPart, 250, 4, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.wait(0.15)
+                    applyVelocity(rootPart, 220, 4, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.wait(0.15)
+                    applyVelocity(rootPart, 200, 3.5, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.wait(0.15)
+                    applyVelocity(rootPart, 180, 3.5, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.delay(0.4, function() moveDebounce = false end)
+                end
+            end,
+            
+            ["Mega Dive"] = function()
+                if not hasBall then
+                    moveDebounce = true
+                    applyVelocity(rootPart, 200, 1, false, nil, false, nil, DIRECTION.BACKWARD)
+                    task.wait(0.1)
+                    applyVelocity(rootPart, 100, 1, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.wait(0.1)
+                    applyVelocity(rootPart, 450, 1, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.delay(0.5, function() moveDebounce = false end)
+                end
+            end,
+            
+            ["Speedy Destroy"] = function()
+                if not hasBall then
+                    task.wait(0.1)
+                    applyVelocity(rootPart, 300, 2.6, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.wait(0.15)
+                    applyVelocity(rootPart, 300, 2.6, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.wait(0.15)
+                    applyVelocity(rootPart, 300, 2, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.wait(0.15)
+                    applyVelocity(rootPart, 300, 2, false, nil, false, nil, DIRECTION.FORWARD)
+                    moveDebounce = true
+                    task.delay(0.5, function() moveDebounce = false end)
+                end
+            end,
+            
+            ["Chip-Chop"] = function()
+                if hasBall then
+                    moveDebounce = true
+                    task.wait(0.2)
+                    applyVelocity(rootPart, 215, 0.4, false, nil, false, nil, DIRECTION.FORWARD_LEFT)
+                    task.wait(0.1)
+                    applyVelocity(rootPart, 200, 0.4, false, nil, false, nil, DIRECTION.FORWARD_LEFT)
+                    task.wait(0.1)
+                    applyVelocity(rootPart, 180, 0.4, false, nil, false, nil, DIRECTION.FORWARD_LEFT)
+                    task.delay(0.55, function() moveDebounce = false end)
+                end
+            end,
+            
+            ["ZigZag's Doom"] = function()
+                task.wait(0.2)
+                applyVelocity(rootPart, 300, 0.7, false, nil, false, nil, DIRECTION.FORWARD)
+                task.wait(0.15)
+                applyVelocity(rootPart, 250, 0.7, false, nil, false, nil, DIRECTION.FORWARD)
+                task.wait(0.15)
+                applyVelocity(rootPart, 225, 0.7, false, nil, false, nil, DIRECTION.FORWARD)
+                task.wait(0.15)
+                applyVelocity(rootPart, 200, 0.7, false, nil, false, nil, DIRECTION.FORWARD)
+            end,
+            
+            ["Snaky Dash"] = function()
+                if not hasBall then
+                    moveDebounce = true
+                    applyVelocity(rootPart, 125, 0.4, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.wait(0.3)
+                    applyVelocity(rootPart, 115, 0.4, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.delay(0.55, function() moveDebounce = false end)
+                end
+            end,
+            
+            ["Back Heel Dash"] = function()
+                if hasBall then
+                    moveDebounce = true
+                    task.wait(0.7)
+                    applyVelocity(rootPart, 290, 0.15, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.delay(0.55, function() moveDebounce = false end)
+                end
+            end,
+            
+            ["Explosive Rush"] = function()
+                if not hasBall then
+                    moveDebounce = true
+                    task.wait(0.35)
+                    applyVelocity(rootPart, 165, 1, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.delay(1, function() moveDebounce = false end)
+                end
+            end,
+
+            ["Sway-Way"] = function()
+                if hasBall then
+                    moveDebounce = true
+                    task.wait(0.2)
+                    applyVelocity(rootPart, 150, 0.4, false, nil, false, nil, DIRECTION.FORWARD_LEFT)
+                    task.wait(0.2)
+                    applyVelocity(rootPart, 130, 0.4, false, nil, false, nil, DIRECTION.FORWARD_LEFT)
+                    task.wait(0.2)
+                    applyVelocity(rootPart, 125, 0.4, false, nil, false, nil, DIRECTION.LEFT)
+                    task.delay(0.55, function() moveDebounce = false end)
+                end
+            end,
+            
+            ["Non Volley Dash"] = function()
+                if hasBall then
+                    moveDebounce = true
+                    task.wait(0.45)
+                    applyVelocity(rootPart, 200, 0.25, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.wait(0.1)
+                    applyVelocity(rootPart, 250, 0.25, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.delay(0.55, function() moveDebounce = false end)
+                end
+            end,
+            
+            ["One Reset Turn"] = function()
+                if hasBall then
+                    moveDebounce = true
+                    task.wait(0.2)
+                    applyVelocity(rootPart, 120, 0.3, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.wait(0.1)
+                    applyVelocity(rootPart, 120, 0.3, false, nil, false, nil, DIRECTION.FORWARD_RIGHT)
+                    task.wait(0.15)
+                    applyVelocity(rootPart, 120, 0.3, false, nil, false, nil, DIRECTION.RIGHT)
+                    task.wait(0.1)
+                    applyVelocity(rootPart, 150, 0.3, false, nil, false, nil, DIRECTION.LEFT)
+                    task.wait(0.1)
+                    applyVelocity(rootPart, 160, 0.3, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.delay(0.55, function() moveDebounce = false end)
+                end
+            end,
+            
+            ["Tricky Dribbling"] = function()
+                moveDebounce = true
+                task.wait(0.15)
+                applyVelocity(rootPart, 200, 0.4, false, nil, false, nil, DIRECTION.RIGHT)
+                task.wait(0.6)
+                applyVelocity(rootPart, 275, 0.25, false, nil, false, nil, DIRECTION.FORWARD_LEFT)
+                task.delay(0.55, function() moveDebounce = false end)
+            end,
+            
+            ["Kaiser Impact Magnus"] = function()
+                if hasBall then
+                    moveDebounce = true
+                    task.wait(0.2)
+                    applyVelocity(rootPart, 115, 0.25, false, nil, false, nil, DIRECTION.RIGHT)
+                    task.delay(0.55, function() moveDebounce = false end)
+                end
+            end,
+            
+            ["Reaction Jump"] = function()
+                if not hasBall then
+                    moveDebounce = true
+                    task.wait(0.15)
+                    applyVelocity(rootPart, 200, 0.4, false, nil, false, nil, DIRECTION.UP_FORWARD)
+                    task.wait(0.15)
+                    applyVelocity(rootPart, 100, 0.3, false, nil, false, nil, DIRECTION.UP_FORWARD)
+                    task.delay(0.55, function() moveDebounce = false end)
+                end
+            end,
+            
+            ["Godly Dribbling"] = function()
+                if hasBall then
+                    moveDebounce = true
+                    local dribbleSequence = {
+                        {dir = DIRECTION.LEFT, speed = 120, duration = 0.3, delay = 0.3},
+                        {dir = DIRECTION.FORWARD_LEFT, speed = 90, duration = 0.2, delay = 0.2},
+                        {dir = DIRECTION.FORWARD, speed = 120, duration = 0.3, delay = 0.3},
+                        {dir = DIRECTION.FORWARD_LEFT, speed = 90, duration = 0.2, delay = 0.2},
+                        {dir = DIRECTION.FORWARD_RIGHT, speed = 120, duration = 0.2, delay = 0.2},
+                        {dir = DIRECTION.FORWARD, speed = 130, duration = 0.5, delay = 0}
+                    }
+                    
+                    for _, move in ipairs(dribbleSequence) do
+                        applyVelocity(rootPart, move.speed, move.duration, false, nil, false, nil, move.dir)
+                        if move.delay > 0 then
+                            task.wait(move.delay)
+                        end
+                    end
+                    task.delay(0.55, function() moveDebounce = false end)
+                end
+            end,
+            
+            ["Acrobatic pass"] = function()
+                if hasBall then
+                    moveDebounce = true
+                    task.wait(0.05)
+                    applyVelocity(rootPart, 150, 0.4, false, nil, false, nil, DIRECTION.UP_FORWARD)
+                    task.wait(0.2)
+                    applyVelocity(rootPart, 80, 0.2, false, nil, false, nil, DIRECTION.UP_FORWARD)
+                    task.delay(0.55, function() moveDebounce = false end)
+                end
+            end,
+            
+            ["Meta Reflex"] = function()
+                if not hasBall then
+                    moveDebounce = true
+                    task.wait(0.15)
+                    applyVelocity(rootPart, 80, 0.25, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.wait(0.15)
+                    applyVelocity(rootPart, 115, 0.25, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.wait(0.15)
+                    applyVelocity(rootPart, 135, 1, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.delay(0.55, function() moveDebounce = false end)
+                end
+            end,
+
+            ["Powerful Run"] = function()
+                moveDebounce = true
+                task.wait(0.15)
+                applyVelocity(rootPart, 100, 0.25, false, nil, false, nil, DIRECTION.FORWARD)
+                task.wait(0.15)
+                applyVelocity(rootPart, 150, 2, false, nil, false, nil, DIRECTION.FORWARD)
+                task.delay(0.55, function() moveDebounce = false end)
+            end,
+            
+            -- 🧟 IMPROVED ZOMBIE DRIBBLE - OPTIMIZED AND ENHANCED
+            ["Unpredictable Dribbling"] = function()
+                if hasBall then
+                    moveDebounce = true
+                    
+                    -- Define a more unpredictable zombie-like movement pattern
+                    local zombiePattern = {
+                        {dir = DIRECTION.FORWARD, speed = 215, duration = 0.25, delay = 0.25},
+                        {dir = DIRECTION.FORWARD_RIGHT, speed = 195, duration = 0.25, delay = 0.25},
+                        {dir = DIRECTION.FORWARD, speed = 145, duration = 0.25, delay = 0.25},
+                        {dir = DIRECTION.FORWARD_LEFT, speed = 165, duration = 0.25, delay = 0.25},
+                        {dir = DIRECTION.FORWARD_LEFT, speed = 120, duration = 0.25, delay = 0.25},
+                        {dir = DIRECTION.FORWARD_RIGHT, speed = 215, duration = 0.25, delay = 0.25},
+                        {dir = DIRECTION.FORWARD_RIGHT, speed = 125, duration = 0.25, delay = 0.25},
+                    }
+                    
+                    -- Randomize the pattern slightly for true unpredictability
+                    local randomizedPattern = {}
+                    for i, move in ipairs(zombiePattern) do
+                        local randomizedMove = {
+                            dir = move.dir,
+                            speed = move.speed * (0.9 + math.random() * 0.2), -- ±10% speed variation
+                            duration = move.duration * (0.8 + math.random() * 0.4), -- ±20% duration variation
+                            delay = move.delay * (0.8 + math.random() * 0.4) -- ±20% delay variation
+                        }
+                        table.insert(randomizedPattern, randomizedMove)
+                    end
+                    
+                    -- Execute the zombie pattern
+                    for _, move in ipairs(randomizedPattern) do
+                        applyVelocity(rootPart, move.speed, move.duration, false, nil, false, nil, move.dir)
+                        if move.delay > 0 then
+                            task.wait(move.delay)
+                        end
+                    end
+                    
+                    -- Final burst with erratic movement
+                    local finalMoves = {
+                        {dir = DIRECTION.FORWARD_LEFT, speed = 125, duration = 0.15},
+                        {dir = DIRECTION.RIGHT, speed = 90, duration = 0.15},
+                        {dir = DIRECTION.FORWARD, speed = 215, duration = 0.2}
+                    }
+                    
+                    for _, move in ipairs(finalMoves) do
+                        applyVelocity(rootPart, move.speed, move.duration, false, nil, false, nil, move.dir)
+                        task.wait(0.1)
+                    end
+                    
+                    task.delay(0.5, function() moveDebounce = false end)
+                end
+            end,
+            
+            ["Meta Genius Run"] = function()
+                moveDebounce = true
+                task.wait(0.1)
+                applyVelocity(rootPart, 250, 1, false, nil, false, nil, DIRECTION.FORWARD)
+                task.wait(0.1)
+                applyVelocity(rootPart, 230, 1, false, nil, false, nil, DIRECTION.FORWARD)
+                task.wait(0.1)
+                applyVelocity(rootPart, 180, 1, false, nil, false, nil, DIRECTION.FORWARD)
+                task.wait(0.15)
+                applyVelocity(rootPart, 160, 1, false, nil, false, nil, DIRECTION.FORWARD)
+                task.wait(0.15)
+                applyVelocity(rootPart, 130, 0.6, false, nil, false, nil, DIRECTION.FORWARD)
+                task.delay(0.55, function() moveDebounce = false end)
+            end,
+            
+            -- 🎯 IMPROVED TRAP SKILL WITH AERIAL DETECTION
+            ["Trap"] = function()
+                if not hasBall then
+                    moveDebounce = true
+                    
+                    -- Check if character is in air
+                    local inAir = isInAir(character)
+                    
+                    if inAir then
+                        -- Aerial version: Dive down with forward momentum
+                        task.wait(0.3)
+                        applyVelocity(rootPart, 160, 0.3, false, nil, false, nil, DIRECTION.UP_FORWARD)
+                        task.wait(0.3)
+                        applyVelocity(rootPart, 100, 0.5, false, nil, false, nil, DIRECTION.UP_FORWARD)
+                        task.wait(0.3)
+                        applyVelocity(rootPart, 80, 1, false, nil, false, nil, DIRECTION.FORWARD)
+                        task.wait(0.3)
+                        -- Quick burst forward after landing simulation
+                        applyVelocity(rootPart, 15, 0.4, false, nil, false, nil, DIRECTION.DOWN_FORWARD)
+                        task.wait(0.1)
+                        applyVelocity(rootPart, 30, 0.2, false, nil, false, nil, DIRECTION.DOWN_FORWARD)
+                    else
+                        -- Ground version: Powerful forward dash
+                        task.wait(0.1)
+                        applyVelocity(rootPart, 200, 0.25, false, nil, false, nil, DIRECTION.FORWARD)
+                        task.wait(0.1)
+                        applyVelocity(rootPart, 190, 2, false, nil, false, nil, DIRECTION.FORWARD)
+                        task.wait(0.1)
+                        applyVelocity(rootPart, 170, 2, false, nil, false, nil, DIRECTION.FORWARD)
+                        task.wait(0.1)
+                        applyVelocity(rootPart, 140, 2, false, nil, false, nil, DIRECTION.FORWARD)
+                    end
+                    
+                    task.delay(0.55, function() moveDebounce = false end)
+                end
+            end,
+            ["Dribbling Barrier"] = function()
+                moveDebounce = true
+                task.wait(0.1)
+                applyVelocity(rootPart, 170, 1, false, nil, false, nil, DIRECTION.FORWARD)
+                task.wait(0.25)
+                applyVelocity(rootPart, 170, 1, false, nil, false, nil, DIRECTION.FORWARD)
+                task.delay(0.55, function() moveDebounce = false end)
+            end,
+            ["Inevitable Speed"] = function()
+                if not hasBall then
+                    moveDebounce = true
+                    task.wait(0.2)
+                    applyVelocity(rootPart, 80, 1, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.wait(0.4)
+                    applyVelocity(rootPart, 100, 1, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.wait(0.3)
+                    applyVelocity(rootPart, 225, 1, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.wait(0.1)
+                    applyVelocity(rootPart, 200, 1, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.wait(0.1)
+                    applyVelocity(rootPart, 185, 0.6, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.delay(0.55, function() moveDebounce = false end)
+                end
+            end,
+            ["Right Feint"] = function()
+                if hasBall then
+                    moveDebounce = true
+                    task.wait(0.05)
+                    applyVelocity(rootPart, 170, 1, false, nil, false, nil, DIRECTION.RIGHT)
+                    task.wait(0.05)
+                    applyVelocity(rootPart, 160, 1, false, nil, false, nil, DIRECTION.RIGHT)
+                    task.wait(0.25)
+                    applyVelocity(rootPart, 130, 0.4, false, nil, false, nil, DIRECTION.RIGHT)
+                    task.delay(0.55, function() moveDebounce = false end)
+                end
+            end,
+            ["Bunch of Feints"] = function()
+                if hasBall then
+                    moveDebounce = true
+                    task.wait(0.3)
+                    applyVelocity(rootPart, 170, 1, false, nil, false, nil, DIRECTION.RIGHT)
+                    task.wait(0.3)
+                    applyVelocity(rootPart, 160, 1, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.wait(0.3)
+                    applyVelocity(rootPart, 130, 0.4, false, nil, false, nil, DIRECTION.LEFT)
+                    task.wait(0.3)
+                    applyVelocity(rootPart, 160, 1, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.delay(0.55, function() moveDebounce = false end)
+                end
+            end,
+            ["Planet Hotline"] = function()
+                if not hasBall then
+                    moveDebounce = true
+                    task.wait(0.25)
+                    applyVelocity(rootPart, 180, 1, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.wait(0.25)
+                    applyVelocity(rootPart, 160, 1, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.wait(0.25)
+                    applyVelocity(rootPart, 140, 1, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.delay(0.55, function() moveDebounce = false end)
+                end
+            end,
+        }
+        
+        -- 🎯 MULTIPLE SKILLS WITH SAME EFFECT (FORWARD ONLY)
+        if skillName == "Monster Counter" or skillName == "Arc Break" or 
+           skillName == "Dribble" or skillName == "Rabona Nutmeg" or skillName == "Feint" or skillName == "Fake Shot" then
+            if hasBall then
+                moveDebounce = true
+                local rapidSequence = {
+                    {speed = 400, delay = 0.04},
+                    {speed = 350, delay = 0.04},
+                    {speed = 325, delay = 0.04},
+                    {speed = 300, delay = 0.04},
+                    {speed = 100, delay = 0.04},
+                }
+                task.wait(0.05)
+                for _, move in ipairs(rapidSequence) do
+                    applyVelocity(rootPart, move.speed, 0.15, false, nil, false, nil, DIRECTION.FORWARD)
+                    task.wait(move.delay)
+                end
+                task.delay(0.5, function() moveDebounce = false end)
+            end
+        elseif skillActions[skillName] then
+            skillActions[skillName]()
+        end
+    end)
+
+    table.insert(activeConnections, inputConnection)
+
+    -- 🚀 INITIAL LOAD IF CHARACTER EXISTS
+    if LocalPlayer.Character then
+        loadCharacter(LocalPlayer.Character)
+    end
+
+    -- 📊 DEBUG INFO
+    print("[SCRIPT] Running with ID: " .. SCRIPT_ID)
+    print("[SCRIPT] Active connections: " .. #activeConnections)
+    print("[SCRIPT] Direction system: ENABLED (16 directions available)")
+    print("[SCRIPT] Skill cooldown protection: " .. SKILL_COOLDOWN .. " seconds")
+    print("[SCRIPT] Aerial detection system: ACTIVE")
+    print("[SCRIPT] Trap skill: Dual mode (ground/aerial)")
+    print("[SCRIPT] Skill auto-update: ENABLED (0.4s debounce)")
+    sendAlert("🔥 Script Loaded!", "Made by @opca102 | Enhanced Style Skills", 18, "Bet")
+end
+return FootballScript
