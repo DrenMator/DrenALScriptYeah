@@ -1,0 +1,74 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- Загружаем скрипт и сохраняем функцию
+local FootballScript = loadstring(game:HttpGet("https://github.com/DrenMator/DrenALScriptYeah/blob/main/StylezBuff.txt",true))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "Dren's AL Script",
+   Icon = 0,
+   LoadingTitle = "Wait for it...",
+   LoadingSubtitle = "by @opca102",
+   ShowText = "Rayfield",
+   Theme = "Default",
+
+   ToggleUIKeybind = "K",
+
+   DisableRayfieldPrompts = false,
+   DisableBuildWarnings = false,
+
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = nil,
+      FileName = "Brotato What"
+   },
+
+   Discord = {
+      Enabled = false,
+      Invite = "noinvitelink",
+      RememberJoins = true
+   },
+
+   KeySystem = false,
+   KeySettings = {
+      Title = "Untitled",
+      Subtitle = "Key System",
+      Note = "Hewwo~",
+      FileName = "KeySkibidiOpca",
+      SaveKey = true,
+      GrabKeyFromSite = false,
+      Key = {"Hewwo~"}
+   }
+})
+
+local MainTab = Window:CreateTab("Main")
+local MovesetsTab = Window:CreateTab("Movesets")
+local Toggle = MainTab:CreateToggle({
+   Name = "OG Styles Buff (Not recommend to use with custom movesets)",
+   CurrentValue = false,
+   Flag = "Styles1",
+   Callback = function(Value)
+      FootballScript(Value)
+   end,
+})
+local Divider = MainTab:CreateDivider()
+local NaruhayaMovesetButton = MovesetsTab:CreateButton({
+   Name = "Naruhaya (needs isagi)",
+   Callback = function()
+      loadstring(game:HttpGet("https://github.com/DrenMator/DrenALScriptYeah/blob/main/NaruhayaMoveset.txt",true))()
+   end,
+})
+local Divider = MovesetsTab:CreateDivider()
+local ClearMovesetsButton = MovesetsTab:CreateButton({
+   Name = "Clear all custom movesets",
+   Callback = function()
+      local terrain = workspace.Terrain
+      if terrain then
+         local marker = Instance.new("StringValue")
+         marker.Name = "MovesetMarker"
+         marker.Value = "KILL_" .. tick()
+         marker.Parent = terrain
+         task.wait(3)
+         marker:Destroy()
+      end
+   end,
+})
