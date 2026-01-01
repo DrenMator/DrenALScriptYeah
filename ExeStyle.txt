@@ -348,12 +348,13 @@ local animationHandlers = {
 -- Система кулдаунов
 local animationCooldowns = {}
 local activeAnimations = {}
-
+local DEBUG = false
 -- Основная функция проверки анимаций
 local function checkAnimations()
     -- Отладочный вывод текущих анимаций
     task.spawn(function()
-        while task.wait(1) and isAlive do
+        if not DEBUG then return end
+        while task.wait(0.5) and isAlive do
             local character = plr.Character
             if character and character:FindFirstChild("Humanoid") then
                 local humanoid = character.Humanoid
