@@ -271,7 +271,7 @@ local animationHandlers = {
         name = "EXE Dribble",
         handler = function(character)
             if not isAlive then return end
-            task.wait(0.8)
+            task.wait(0.2)
             
             -- Воспроизводим звук
             sfx(dribblesound, game.SoundService, 10)
@@ -297,7 +297,9 @@ local animationHandlers = {
             task.wait(0.05)
             applyVelocity(character.HumanoidRootPart, 345, 0.25)
             task.wait(0.05)
-            applyVelocity(character.HumanoidRootPart, 340, 0.25)
+            applyVelocity(character.HumanoidRootPart, 340, 0.2)
+            task.wait(0.05)
+            applyVelocity(character.HumanoidRootPart, 340, 0.15)
             -- Возвращаем кулдаун в секундах
             return 7
         end
@@ -324,11 +326,11 @@ local animationHandlers = {
                     registerObject(c)
                 end
             end
-            applyVelocity(character.HumanoidRootPart, 280, 0.3)
+            applyVelocity(character.HumanoidRootPart, 290, 0.3)
             task.wait(0.1)
-            applyVelocity(character.HumanoidRootPart, 240, 0.2)
+            applyVelocity(character.HumanoidRootPart, 250, 0.2)
             task.wait(0.1)
-            applyVelocity(character.HumanoidRootPart, 160, 0.1) 
+            applyVelocity(character.HumanoidRootPart, 170, 0.1) 
             -- Возвращаем кулдаун в секундах
             return 6
         end
@@ -429,7 +431,7 @@ local function checkAnimations()
             end
         end
         
-        task.wait(0.1)
+        task.wait(0.06)
     end
 end
 
