@@ -293,6 +293,8 @@ local chigiri = ReplicatedStorage.Resources.chigiri
 local DashAnim = chigiri.BlitzAnim
 local awksound = Instance.new("Sound")
 awksound.SoundId = "rbxassetid://88365084976927"
+local awkanim = ReplicatedStorage.Resources.mvpAssets.heianPeriod.Animation
+local Fooled = ReplicatedStorage.Resources.exe.Tp
 -- Функция для воспроизведения звуков
 local function sfx(sound, part, volume)
     if not isAlive then return nil end
@@ -385,10 +387,12 @@ local animationHandlers = {
         name = "Awakening",
         handler = function(character)
             if not isAlive then return end
-            
+            local anim = character.Humanoid:LoadAnimation(awkanim)
+            anim:Play()
             -- Воспроизводим звук
             sfx(awksound, game.SoundService, 10)
-
+            wait(6.5)
+            anim:Stop(0)
             -- Возвращаем кулдаун в секундах
             return 20
         end
@@ -412,6 +416,8 @@ local animationHandlers = {
         handler = function(character)
             if not isAlive then return end
             task.wait(0.1)
+            local anim = character.Humanoid:LoadAnimation(Fooled)
+            anim:Play()
             -- Воспроизводим звук
             sfx(sukunasound5, game.SoundService, 10)
             
@@ -570,10 +576,6 @@ game.StarterGui:SetCore("SendNotification", {
     Duration = 5,
     Button1 = "sybau bro...",
 })
-
-print("[Animation Handler] Successfully loaded with ID: " .. SCRIPT_ID)
-print("[System] Tracking animations: " .. #table.keys(animationHandlers))
-print("[System] Skill renames configured: " .. #table.keys(CFG.renames))
 
 -- Экспорт для отладки (опционально)
 return {
