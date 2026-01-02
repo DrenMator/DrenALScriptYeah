@@ -52,7 +52,7 @@ local Toggle = MainTab:CreateToggle({
 })
 local Divider = MainTab:CreateDivider()
 local NaruhayaMovesetButton = MovesetsTab:CreateButton({
-   Name = "Naruhaya (needs isagi, kinda buggy)",
+   Name = "Naruhaya (needs isagi, kinda buggy not recomended to spam his second skill bru)",
    Callback = function()
       loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/NaruhayaMoveset.txt",true))()
    end,
@@ -73,6 +73,12 @@ local SukunaMovesetButton = MovesetsTab:CreateButton({
    Name = "Sukuna V1 (needs nagi, also going to update sometime him)",
    Callback = function()
       loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/SukunaStyle.txt",true))()
+   end,
+})
+local SukunaMovesetButton = MovesetsTab:CreateButton({
+   Name = "Ronaldo (needs don lorenzo, W.I.P.)",
+   Callback = function()
+      loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/RonaldoStyle.txt",true))()
    end,
 })
 local Divider = MovesetsTab:CreateDivider()
