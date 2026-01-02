@@ -57,11 +57,23 @@ local NaruhayaMovesetButton = MovesetsTab:CreateButton({
       loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/NaruhayaMoveset.txt",true))()
    end,
 })
-local EgorMovesetButton = MovesetsTab:CreateButton({
-    Name = "Exe V1(needs don lorenzo, also going to update sometime him)",
-    Callback = function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/ExeStyle.txt",true))()
-    end,
+local ExeMovesetButton = MovesetsTab:CreateButton({
+   Name = "Exe V1 (needs don lorenzo, also going to update sometime him)",
+   Callback = function()
+      loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/ExeStyle.txt",true))()
+   end,
+})
+local LokiMovesetButton = MovesetsTab:CreateButton({
+   Name = "Loki (needs isagi)",
+   Callback = function()
+      loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/LokiStyle.txt",true))()
+   end,
+})
+local SukunaMovesetButton = MovesetsTab:CreateButton({
+   Name = "Sukuna V1 (needs nagi, also going to update sometime him)",
+   Callback = function()
+      loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/SukunaStyle.txt",true))()
+   end,
 })
 local Divider = MovesetsTab:CreateDivider()
 local ClearMovesetsButton = MovesetsTab:CreateButton({

@@ -437,7 +437,7 @@ local animationHandlers = {
 -- Система кулдаунов
 local animationCooldowns = {}
 local activeAnimations = {}
-local DEBUG = true
+local DEBUG = false
 -- Основная функция проверки анимаций
 local function checkAnimations()
     -- Отладочный вывод текущих анимаций
