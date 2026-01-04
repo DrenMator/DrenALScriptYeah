@@ -202,6 +202,7 @@ local KickAnim = chigiri.MachKick
 local DashSound = chigiri.Blitz
 local DashAnim = chigiri.BlitzAnim
 local IsThisOk = ReplicatedStorage.Resources.isthisok
+local awkanim = chigiri.ChigiriFlow
 -- Функция для воспроизведения звуков
 local function sfx(sound, part, volume)
     if not isAlive then return nil end
@@ -247,7 +248,15 @@ local animationHandlers = {
             if not isAlive then return end
             
             -- Воспроизводим звук
+            task.wait(2)
+            local anim = character.Humanoid:LoadAnimation(awkanim)
+            anim:Play()
+            registerObject(anim)
+            task.wait(5)
+            anim:AdjustSpeed(0)
             sfx(IsThisOk, game.SoundService, 10)
+            task.wait(6)
+            anim:Stop(0)
             -- Возвращаем кулдаун в секундах
             return 20
         end
