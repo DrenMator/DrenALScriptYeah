@@ -52,13 +52,13 @@ local Toggle = MainTab:CreateToggle({
 })
 local Divider = MainTab:CreateDivider()
 local NaruhayaMovesetButton = MovesetsTab:CreateButton({
-   Name = "Naruhaya (needs isagi, kinda buggy not recomended to spam his second skill bru)",
+   Name = "Naruhaya (needs isagi, buggy. it was just a test)",
    Callback = function()
       loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/NaruhayaMoveset.txt",true))()
    end,
 })
 local ExeMovesetButton = MovesetsTab:CreateButton({
-   Name = "Exe V1 (needs don lorenzo, also going to update sometime him)",
+   Name = "Exe V1 (needs don lorenzo)",
    Callback = function()
       loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/ExeStyle.txt",true))()
    end,
@@ -70,7 +70,7 @@ local LokiMovesetButton = MovesetsTab:CreateButton({
    end,
 })
 local SukunaMovesetButton = MovesetsTab:CreateButton({
-   Name = "Sukuna V1 (needs nagi, also going to update sometime him)",
+   Name = "Sukuna V1 (needs nagi)",
    Callback = function()
       loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/SukunaStyle.txt",true))()
    end,
@@ -85,6 +85,18 @@ local RonaldoV2 = MovesetsTab:CreateButton({
    Name = "Ronaldo V2 (needs ITOSHI SAE)",
    Callback = function()
       loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/RonaldoV2Style.txt",true))()
+   end,
+})
+local Epicsagi = MovesetsTab:CreateButton({
+   Name = "Epicsagi (needs nel-Isagi)",
+   Callback = function()
+      loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/EpicsagiStyle.txt",true))()
+   end,
+})
+local Gojo = MovesetsTab:CreateButton({
+   Name = "Gojo V1 (needs nagi)",
+   Callback = function()
+      loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/GojoStyle.txt",true))()
    end,
 })
 local Divider = MovesetsTab:CreateDivider()

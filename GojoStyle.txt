@@ -1,0 +1,583 @@
+-- СИСТЕМА САМООЧИСТКИ (ТОЧНАЯ КОПИЯ С ПРИМЕРА)
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local Debris = game:GetService("Debris")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local plr = Players.LocalPlayer
+local SCRIPT_ID = "Moveset_" .. tick() .. "_" .. math.random(1000, 9999)
+local activeConnections = {}
+local activeObjects = {}
+local isAlive = true
+
+local function cleanup()
+    if not isAlive then return end
+    isAlive = false
+    print("[Animation Handler] Self-destructing: new instance detected")
+    
+    for _, connection in pairs(activeConnections) do
+        if connection then
+            pcall(function() connection:Disconnect() end)
+        end
+    end
+    
+    for _, object in pairs(activeObjects) do
+        if object and object.Parent then
+            pcall(function() object:Destroy() end)
+        end
+    end
+    
+    activeConnections = {}
+    activeObjects = {}
+    local terrain = workspace:FindFirstChildOfClass("Terrain")
+    if terrain then
+        local marker = terrain:FindFirstChild("MovesetMarker")
+        if marker and marker.Value == SCRIPT_ID then
+            marker:Destroy()
+        end
+    end
+end
+
+local function registerConnection(conn)
+    if not isAlive then 
+        conn:Disconnect()
+        return conn 
+    end
+    table.insert(activeConnections, conn)
+    return conn
+end
+
+local function registerObject(obj)
+    if not isAlive then 
+        if obj and obj.Parent then
+            obj:Destroy()
+        end
+        return obj 
+    end
+    table.insert(activeObjects, obj)
+    return obj
+end
+
+local function setupMarkerControl()
+    local terrain = workspace:FindFirstChildOfClass("Terrain")
+    if not terrain then return end
+    
+    for _, child in pairs(terrain:GetChildren()) do
+        if child.Name == "MovesetMarker" and child:IsA("StringValue") then
+            child:Destroy()
+        end
+    end
+    
+    local marker = Instance.new("StringValue")
+    marker.Name = "MovesetMarker"
+    marker.Value = SCRIPT_ID
+    marker.Parent = terrain
+    registerObject(marker)
+    
+    Debris:AddItem(marker, 30)
+    
+    local connection = terrain.ChildAdded:Connect(function(child)
+        if child.Name == "MovesetMarker" and child:IsA("StringValue") then
+            if child.Value ~= SCRIPT_ID then
+                cleanup()
+            end
+        end
+    end)
+    registerConnection(connection)
+    
+    return marker
+end
+
+-- Инициализация системы маркеров
+setupMarkerControl()
+
+-- Периодическая проверка маркеров (точная копия с примера)
+task.spawn(function()
+    while isAlive do
+        local terrain = workspace:FindFirstChildOfClass("Terrain")
+        if terrain then
+            local markers = {}
+            for _, child in pairs(terrain:GetChildren()) do
+                if child.Name == "MovesetMarker" and child:IsA("StringValue") then
+                    table.insert(markers, child)
+                end
+            end
+            
+            if #markers > 1 then
+                local latestTime = 0
+                local latestMarker = nil
+                
+                for _, marker in pairs(markers) do
+                    local markerTime = tonumber(string.match(marker.Value, "Moveset_(%d+%.%d+)_")) or 0
+                    if markerTime > latestTime then
+                        latestTime = markerTime
+                        latestMarker = marker
+                    end
+                end
+                
+                if latestMarker and latestMarker.Value ~= SCRIPT_ID then
+                    cleanup()
+                    break
+                end
+            end
+        end
+        task.wait(5)
+    end
+end)
+
+-- Функция для применения скорости (как в примере)
+local function applyVelocity(part, speed, duration, direction)
+    if not part or not isAlive or not part.Parent then return nil end
+    
+    -- Если direction не указан, используем FORWARD для совместимости
+    direction = direction or "FORWARD"
+    
+    -- Удаляем старые BodyVelocity
+    for _, v in pairs(part:GetChildren()) do
+        if v:IsA("BodyVelocity") then
+            registerObject(v)
+            v:Destroy()
+        end
+    end
+
+    -- Получаем векторы направления персонажа
+    local cf = part.CFrame
+    local lookVector = cf.LookVector
+    local rightVector = cf.RightVector
+    local upVector = cf.UpVector
+    
+    -- Инициализируем вектор скорости
+    local velocityVector = Vector3.new(0, 0, 0)
+    
+    -- Преобразуем строку направления в вектор
+    local directionMap = {
+        -- Основные направления (8 штук)
+        ["FORWARD"] = lookVector,
+        ["BACKWARD"] = -lookVector,
+        ["RIGHT"] = rightVector,
+        ["LEFT"] = -rightVector,
+        ["UP"] = upVector,
+        ["DOWN"] = -upVector,
+        
+        -- Диагональные направления (4 штуки)
+        ["FORWARD_RIGHT"] = (lookVector + rightVector).Unit,
+        ["FORWARD_LEFT"] = (lookVector - rightVector).Unit,
+        ["BACKWARD_RIGHT"] = (-lookVector + rightVector).Unit,
+        ["BACKWARD_LEFT"] = (-lookVector - rightVector).Unit,
+        
+        -- Вертикально-горизонтальные комбинации (12 штук)
+        ["UP_FORWARD"] = (upVector + lookVector).Unit,
+        ["UP_BACKWARD"] = (upVector - lookVector).Unit,
+        ["UP_RIGHT"] = (upVector + rightVector).Unit,
+        ["UP_LEFT"] = (upVector - rightVector).Unit,
+        
+        ["DOWN_FORWARD"] = (-upVector + lookVector).Unit,
+        ["DOWN_BACKWARD"] = (-upVector - lookVector).Unit,
+        ["DOWN_RIGHT"] = (-upVector + rightVector).Unit,
+        ["DOWN_LEFT"] = (-upVector - rightVector).Unit,
+        
+        -- Тройные комбинации (8 штук)
+        ["UP_FORWARD_RIGHT"] = (upVector + lookVector + rightVector).Unit,
+        ["UP_FORWARD_LEFT"] = (upVector + lookVector - rightVector).Unit,
+        ["UP_BACKWARD_RIGHT"] = (upVector - lookVector + rightVector).Unit,
+        ["UP_BACKWARD_LEFT"] = (upVector - lookVector - rightVector).Unit,
+        
+        ["DOWN_FORWARD_RIGHT"] = (-upVector + lookVector + rightVector).Unit,
+        ["DOWN_FORWARD_LEFT"] = (-upVector + lookVector - rightVector).Unit,
+        ["DOWN_BACKWARD_RIGHT"] = (-upVector - lookVector + rightVector).Unit,
+        ["DOWN_BACKWARD_LEFT"] = (-upVector - lookVector - rightVector).Unit,
+        
+        -- Кастомные направления относительно камеры (опционально)
+        ["CAMERA_FORWARD"] = workspace.CurrentCamera.CFrame.LookVector,
+        ["CAMERA_RIGHT"] = workspace.CurrentCamera.CFrame.RightVector,
+        ["CAMERA_LEFT"] = -workspace.CurrentCamera.CFrame.RightVector,
+    }
+    
+    -- Получаем вектор направления
+    local directionVector = directionMap[direction:upper()]
+    
+    -- Если направление не найдено, используем FORWARD как запасной вариант
+    if not directionVector then
+        print("[Warning] Unknown direction: " .. direction .. ", using FORWARD")
+        directionVector = lookVector
+    end
+    
+    -- Определяем, нужно ли вертикальное усилие
+    local maxForceY = 0
+    if direction:upper():find("UP") or direction:upper():find("DOWN") or 
+       direction == "UP" or direction == "DOWN" then
+        maxForceY = 350000
+    end
+    
+    -- Создаем BodyVelocity
+    local bv = Instance.new("BodyVelocity")
+    bv.MaxForce = Vector3.new(350000, maxForceY, 350000)
+    bv.Velocity = directionVector * speed
+    bv.Parent = part
+    registerObject(bv)
+    
+    -- Автоматическое удаление через duration секунд
+    task.delay(duration, function()
+        if bv and bv.Parent and isAlive then
+            bv:Destroy()
+        end
+    end)
+    
+    -- Возвращаем созданный объект для возможного ручного управления
+    return bv, directionVector
+end
+
+-- КОНФИГУРАЦИЯ СКИЛЛОВ (КАК В ПРИМЕРЕ)
+local CFG = {
+    -- Переименование скиллов в интерфейсе
+    renames = {
+        ["skill1"] = "Flying Body",
+        ["skill2"] = "Strongest Control",
+        ["skill4"] = "Show Off",
+        ['skill5'] = "Hollow Ahh Kick",
+    }
+}
+
+-- Функция для переименования скиллов в интерфейсе (как в примере)
+local function renameSkillsInHotbar()
+    if not isAlive then return end
+    
+    task.wait(1) -- Ждем загрузки интерфейса
+    
+    -- Ждем, пока игрок не выйдет из лобби (если есть такая механика)
+    repeat task.wait() until plr.Team and plr.Team.Name ~= "lobby"
+    task.wait(0.5)
+    
+    local hotbar = plr.PlayerGui:WaitForChild("Hotbar", 10)
+    if hotbar and isAlive then
+        local backpack = hotbar:FindFirstChild("Backpack")
+        if backpack then
+            local hotbarFrame = backpack:FindFirstChild("Hotbar")
+            if hotbarFrame then
+                for slotName, newName in pairs(CFG.renames) do
+                    local skillFrame = hotbarFrame:FindFirstChild(slotName)
+                    if skillFrame then
+                        local base = skillFrame:FindFirstChild("Base")
+                        if base then
+                            local toolName = base:FindFirstChild("ToolName")
+                            if toolName then
+                                toolName.Text = newName
+                                print("[Skill Renamer] Renamed " .. slotName .. " to: " .. newName)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function hasball()
+	return plr.Character:FindFirstChild("Ball") ~= nil
+end
+
+-- СОБСТВЕННО СКРИПТ ДЛЯ АНИМАЦИЙ
+local gojosound1 = Instance.new("Sound")
+gojosound1.SoundId = "rbxassetid://86189141136166"
+local gojosound2 = Instance.new("Sound")
+gojosound2.SoundId = "rbxassetid://114219438298857"
+local gojosound3 = Instance.new("Sound")
+gojosound3.SoundId = "rbxassetid://7147847068"
+local gojosound4 = Instance.new("Sound")
+gojosound4.SoundId = "rbxassetid://130303224686750"
+local gojosound5 = Instance.new("Sound")
+gojosound5.SoundId = "rbxassetid://76709236886220"
+local gojosound6 = Instance.new("Sound")
+gojosound6.SoundId = "rbxassetid://115438685697124"
+local gojosound7 = Instance.new("Sound")
+gojosound7.SoundId = "rbxassetid://86891100502580"
+local gojosound8 = Instance.new("Sound")
+gojosound8.SoundId = "rbxassetid://137076236250679"
+local awksound = Instance.new("Sound")
+awksound.SoundId = "rbxassetid://88365084976927"
+local awkanim = ReplicatedStorage.Resources.mvpAssets.heianPeriod.Animation
+local Fooled = ReplicatedStorage.Resources.exe.Tp
+-- Функция для воспроизведения звуков
+local function sfx(sound, part, volume, timepos)
+    if not isAlive then return nil end
+    
+    local s = sound:Clone()
+    s.Parent = part
+    s.Volume = volume or 1
+    if timepos ~= nil then
+        s.TimePosition = timepos
+    end
+    s:Play()
+    
+    local soundLength = s.TimeLength
+    Debris:AddItem(s, soundLength + 15)
+    registerObject(s)
+    
+    return s
+end
+
+-- Функция конвертации ID
+local function convert(id)
+    return "rbxassetid://" .. id
+end
+
+-- Таблица обработчиков анимаций
+local animationHandlers = {
+    ["77370115011368"] = {
+        name = "ControlDefault",
+        handler = function(character)
+            if not isAlive then return end
+            -- Воспроизводим звук
+            sfx(gojosound4, game.SoundService, 10)
+            applyVelocity(character.HumanoidRootPart, 100, 0.5,"UP_FORWARD")
+            task.wait(0.2)
+            applyVelocity(character.HumanoidRootPart, 140, 0.5,"FORWARD")
+            task.wait(0.2)
+            applyVelocity(character.HumanoidRootPart, 170, 0.3,"FORWARD")
+            -- Возвращаем кулдаун в секундах
+            return 0
+        end
+    },
+    ["126533399242044"] = {
+        name = "ControlAir",
+        handler = function(character)
+            if not isAlive then return end
+            
+            -- Воспроизводим звук
+            sfx(gojosound3, game.SoundService, 10)
+
+            -- Возвращаем кулдаун в секундах
+            return 0
+        end
+    },
+    ["130113720883769"] = {
+        name = "LeftFeint",
+        handler = function(character)
+            if not isAlive then return end
+            
+            -- Воспроизводим звук
+            sfx(gojosound5, game.SoundService, 10)
+            
+            -- Применяем скорость
+            task.wait(0.1)
+            applyVelocity(character.HumanoidRootPart, 80, 0.2,"UP")
+            task.wait(0.3)
+            applyVelocity(character.HumanoidRootPart, 200, 0.2,"FORWARD")
+            task.wait(0.3)
+            applyVelocity(character.HumanoidRootPart, 160, 0.2,"FORWARD")
+            -- Возвращаем кулдаун в секундах
+            return 0
+        end
+    },
+    ["80063325550268"] = {
+        name = "KickHeavy",
+        handler = function(character)
+            if not isAlive then return end
+            
+            -- Воспроизводим звук
+            local YABADA = sfx(gojosound2, game.SoundService, 10)
+            task.wait(0.3)
+            local YABADA2 = sfx(gojosound2, game.SoundService, 10,1.5)
+            task.wait(0.4)
+            YABADA:Stop()
+            -- Возвращаем кулдаун в секундах
+            return 0
+        end
+    },
+    ["80140996064733"] = {
+        name = "Awakening",
+        handler = function(character)
+            if not isAlive then return end
+            task.wait(0.1)
+            sfx(gojosound6, game.SoundService, 10)
+            task.wait(2)
+            sfx(gojosound7, game.SoundService, 10)
+            -- Возвращаем кулдаун в секундах
+            return 0
+        end
+    },
+    ["82929375261557"] = {
+        name = "Jumping Turn",
+        handler = function(character)
+            if not isAlive then return end
+            task.wait(12)
+            sfx(gojosound8, game.SoundService, 10)
+            -- Возвращаем кулдаун в секундах
+            return 0
+        end
+    },
+    ["71640109646843"] = {
+        name = "Fooling",
+        handler = function(character)
+            if not isAlive or not hasball() then return end
+            task.wait(0.1)
+            local anim = character.Humanoid:LoadAnimation(Fooled)
+            anim:Play()
+            -- Воспроизводим звук
+            sfx(gojosound1, game.SoundService, 10)
+            
+            -- Применяем скорость
+            task.wait(0.2)
+            applyVelocity(character.HumanoidRootPart, 150, 0.4,"UP_FORWARD_RIGHT")
+            task.wait(0.15)
+            applyVelocity(character.HumanoidRootPart, 120, 0.15,"UP_FORWARD_RIGHT")
+            -- Возвращаем кулдаун в секундах
+            return 0
+        end
+    },
+    -- Добавьте другие анимации по шаблону:
+    -- ["ANIMATION_ID"] = {
+    --     name = "Имя анимации",
+    --     handler = function(character)
+    --         -- Ваш код здесь
+    --         return cooldown -- время кулдауна в секундах
+    --     end
+    -- }
+}
+
+-- Система кулдаунов
+local animationCooldowns = {}
+local activeAnimations = {}
+local DEBUG = false
+-- Основная функция проверки анимаций
+local function checkAnimations()
+    -- Отладочный вывод текущих анимаций
+    task.spawn(function()
+        if not DEBUG then return end
+        while task.wait(0.5) and isAlive do
+            local character = plr.Character
+            if character and character:FindFirstChild("Humanoid") then
+                local humanoid = character.Humanoid
+                for i, animTrack in pairs(humanoid:GetPlayingAnimationTracks()) do
+                    if animTrack.Animation and animTrack.Animation.AnimationId then
+                        print("[Debug] Animation: " .. animTrack.Animation.AnimationId .. " | Track: " .. i)
+                    end
+                end
+            end
+        end
+    end)
+    
+    while isAlive do
+        local character = plr.Character
+        if character and character:FindFirstChild("Humanoid") then
+            local humanoid = character.Humanoid
+            
+            -- Получаем текущие анимации
+            for _, animTrack in pairs(humanoid:GetPlayingAnimationTracks()) do
+                if animTrack.Animation and animTrack.Animation.AnimationId then
+                    local animId = string.match(animTrack.Animation.AnimationId, "rbxassetid://(%d+)")
+                    
+                    -- Если это новая анимация и она есть в нашем списке
+                    if animId and animationHandlers[animId] and not activeAnimations[animId] then
+                        activeAnimations[animId] = true
+                        
+                        -- Проверяем кулдаун
+                        if not animationCooldowns[animId] or animationCooldowns[animId] < os.time() then
+                            local handlerInfo = animationHandlers[animId]
+                            print("[Animation Handler] Found animation: " .. handlerInfo.name)
+                            
+                            -- Выполняем обработчик
+                            local cooldown = handlerInfo.handler(character)
+                            
+                            -- Устанавливаем кулдаун если он есть
+                            if cooldown then
+                                animationCooldowns[animId] = os.time() + cooldown
+                                
+                                -- Автоматически снимаем кулдаун через указанное время
+                                task.delay(cooldown, function()
+                                    if isAlive then
+                                        animationCooldowns[animId] = nil
+                                    end
+                                end)
+                            end
+                        end
+                    end
+                end
+            end
+            
+            -- Очищаем отслеживаемые анимации которые перестали играть
+            for animId, _ in pairs(activeAnimations) do
+                local isPlaying = false
+                for _, animTrack in pairs(humanoid:GetPlayingAnimationTracks()) do
+                    if animTrack.Animation and animTrack.Animation.AnimationId then
+                        local trackId = string.match(animTrack.Animation.AnimationId, "rbxassetid://(%d+)")
+                        if trackId == animId then
+                            isPlaying = true
+                            break
+                        end
+                    end
+                end
+                
+                if not isPlaying then
+                    activeAnimations[animId] = nil
+                end
+            end
+        end
+        
+        -- Очищаем старые кулдауны
+        local currentTime = os.time()
+        for animId, cooldownUntil in pairs(animationCooldowns) do
+            if cooldownUntil < currentTime then
+                animationCooldowns[animId] = nil
+            end
+        end
+        
+        task.wait(0.06)
+    end
+end
+
+-- Функция загрузки персонажа (как в примере)
+local function loadCharacter(char)
+    if not isAlive then return end
+    if not char then return end
+    
+    -- Переименовываем скиллы в интерфейсе
+    renameSkillsInHotbar()
+    
+    -- Можете добавить другие действия при загрузке персонажа здесь
+    print("[Character Loaded] Ready to track animations")
+end
+
+-- Подключение событий
+registerConnection(game.Players.PlayerRemoving:Connect(function(player)
+    if player == plr then
+        cleanup()
+    end
+end))
+
+-- Подключение события добавления персонажа (как в примере)
+registerConnection(plr.CharacterAdded:Connect(function(char)
+    if isAlive then
+        loadCharacter(char)
+    end
+end))
+
+-- Если персонаж уже есть, загружаем его
+if plr.Character and isAlive then
+    task.spawn(function()
+        if isAlive then
+            loadCharacter(plr.Character)
+        end
+    end)
+end
+
+-- Запуск основной функции проверки анимаций
+task.spawn(checkAnimations)
+
+-- Уведомление о загрузке
+game.StarterGui:SetCore("SendNotification", {
+    Title = "Sukuna Style Loaded",
+    Text = "Idiot.",
+    Duration = 5,
+    Button1 = "sybau bro...",
+})
+
+-- Экспорт для отладки (опционально)
+return {
+    cleanup = cleanup,
+    isAlive = function() return isAlive end,
+    scriptId = SCRIPT_ID,
+    config = CFG,
+    animationHandlers = animationHandlers
+}
