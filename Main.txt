@@ -39,18 +39,7 @@ local Window = Rayfield:CreateWindow({
       Key = {"Hewwo~"}
    }
 })
-
-local MainTab = Window:CreateTab("Main")
 local MovesetsTab = Window:CreateTab("Movesets")
-local Toggle = MainTab:CreateToggle({
-   Name = "OG Styles Buff (Not recommend to use with custom movesets)",
-   CurrentValue = false,
-   Flag = "Styles1",
-   Callback = function(Value)
-      FootballScript(Value)
-   end,
-})
-local Divider = MainTab:CreateDivider()
 local NaruhayaMovesetButton = MovesetsTab:CreateButton({
    Name = "Naruhaya (needs isagi, buggy. it was just a test)",
    Callback = function()
