@@ -1,5 +1,8 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
+-- Загружаем скрипт и сохраняем функцию
+local FootballScript = loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/StylezBuff.txt",true))()
+
 local Window = Rayfield:CreateWindow({
    Name = "Dren's AL Script",
    Icon = 0,
@@ -36,7 +39,18 @@ local Window = Rayfield:CreateWindow({
       Key = {"Hewwo~"}
    }
 })
+
+local MainTab = Window:CreateTab("Main")
 local MovesetsTab = Window:CreateTab("Movesets")
+local Toggle = MainTab:CreateToggle({
+   Name = "OG Styles Buff (Not recommend to use with custom movesets)",
+   CurrentValue = false,
+   Flag = "Styles1",
+   Callback = function(Value)
+      FootballScript(Value)
+   end,
+})
+local Divider = MainTab:CreateDivider()
 local NaruhayaMovesetButton = MovesetsTab:CreateButton({
    Name = "Naruhaya (needs isagi, buggy. it was just a test)",
    Callback = function()
@@ -97,7 +111,7 @@ local ExeV2 = MovesetsTab:CreateButton({
       loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/ExeV2Style.txt",true))()
    end,
 })
-local RonaldoV2.5 = MovesetsTab:CreateButton({
+local RonaldoV2_5 = MovesetsTab:CreateButton({
    Name = "Ronaldo V2.5 (needs don nagi)",
    Callback = function()
       loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/RonaldoV2_5Style.txt",true))()
