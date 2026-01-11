@@ -106,6 +106,12 @@ local RonaldoV2_5 = MovesetsTab:CreateButton({
       loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/RonaldoV2_5Style.txt",true))()
    end,
 })
+local IsagiExe = MovesetsTab:CreateButton({
+   Name = "PoorExe (needs isagi, this for poor players lol)",
+   Callback = function()
+      loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/PoorExeStyle.txt",true))()
+   end,
+})
 local Divider = MovesetsTab:CreateDivider()
 local ClearMovesetsButton = MovesetsTab:CreateButton({
    Name = "Clear all custom movesets",
