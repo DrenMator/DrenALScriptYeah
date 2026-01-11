@@ -112,7 +112,7 @@ local ExeV2 = MovesetsTab:CreateButton({
    end,
 })
 local RonaldoV2_5 = MovesetsTab:CreateButton({
-   Name = "Ronaldo V2.5 (needs don nagi)",
+   Name = "Ronaldo V2.5 (needs nagi)",
    Callback = function()
       loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/RonaldoV2_5Style.txt",true))()
    end,
