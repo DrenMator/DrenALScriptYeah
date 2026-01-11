@@ -57,19 +57,19 @@ local NaruhayaMovesetButton = MovesetsTab:CreateButton({
       loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/NaruhayaMoveset.txt",true))()
    end,
 })
-local ExeMovesetButton = MovesetsTab:CreateButton({
-   Name = "Exe V1 (needs don lorenzo)",
+local Exe = MovesetsTab:CreateButton({
+   Name = "Exe V1 (needs don lorenzo, ts kinda trash)",
    Callback = function()
       loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/ExeStyle.txt",true))()
    end,
 })
-local LokiMovesetButton = MovesetsTab:CreateButton({
+local Loki = MovesetsTab:CreateButton({
    Name = "Loki (needs isagi)",
    Callback = function()
       loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/LokiStyle.txt",true))()
    end,
 })
-local SukunaMovesetButton = MovesetsTab:CreateButton({
+local Sukuna = MovesetsTab:CreateButton({
    Name = "Sukuna V1 (needs nagi)",
    Callback = function()
       loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/SukunaStyle.txt",true))()
@@ -97,6 +97,18 @@ local Gojo = MovesetsTab:CreateButton({
    Name = "Gojo V1 (needs nagi)",
    Callback = function()
       loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/GojoStyle.txt",true))()
+   end,
+})
+local Izayoi = MovesetsTab:CreateButton({
+   Name = "Izayoi (needs ITOSHI SAE)",
+   Callback = function()
+      loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/IzayoiStyle.txt",true))()
+   end,
+})
+local ExeV2 = MovesetsTab:CreateButton({
+   Name = "Exe V2 (needs don lorenzo)",
+   Callback = function()
+      loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/ExeV2Style.txt",true))()
    end,
 })
 local Divider = MovesetsTab:CreateDivider()
