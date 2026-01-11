@@ -14,7 +14,7 @@ local isAlive = true
 local function cleanup()
     if not isAlive then return end
     isAlive = false
-    print([Animation Handler] Self-destructing new instance detected)
+    print("[Animation Handler] Self-destructing: new instance detected")
     
     for _, connection in pairs(activeConnections) do
         if connection then
