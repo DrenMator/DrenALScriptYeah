@@ -1,12 +1,12 @@
 -- СИСТЕМА САМООЧИСТКИ (ТОЧНАЯ КОПИЯ С ПРИМЕРА)
-local Players = gameGetService(Players)
-local UIS = gameGetService(UserInputService)
-local Debris = gameGetService(Debris)
-local RunService = gameGetService(RunService)
-local ReplicatedStorage = gameGetService(ReplicatedStorage)
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local Debris = game:GetService("Debris")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local plr = Players.LocalPlayer
-local SCRIPT_ID = Moveset_ .. tick() .. _ .. math.random(1000, 9999)
+local SCRIPT_ID = "Moveset_" .. tick() .. "_" .. math.random(1000, 9999)
 local activeConnections = {}
 local activeObjects = {}
 local isAlive = true
@@ -18,30 +18,30 @@ local function cleanup()
     
     for _, connection in pairs(activeConnections) do
         if connection then
-            pcall(function() connectionDisconnect() end)
+            pcall(function() connection:Disconnect() end)
         end
     end
     
     for _, object in pairs(activeObjects) do
         if object and object.Parent then
-            pcall(function() objectDestroy() end)
+            pcall(function() object:Destroy() end)
         end
     end
     
     activeConnections = {}
     activeObjects = {}
-    local terrain = workspaceFindFirstChildOfClass(Terrain)
+    local terrain = workspace:FindFirstChildOfClass("Terrain")
     if terrain then
-        local marker = terrainFindFirstChild(MovesetMarker)
+        local marker = terrain:FindFirstChild("MovesetMarker")
         if marker and marker.Value == SCRIPT_ID then
-            markerDestroy()
+            marker:Destroy()
         end
     end
 end
 
 local function registerConnection(conn)
     if not isAlive then 
-        connDisconnect()
+        conn:Disconnect()
         return conn 
     end
     table.insert(activeConnections, conn)
@@ -51,7 +51,7 @@ end
 local function registerObject(obj)
     if not isAlive then 
         if obj and obj.Parent then
-            objDestroy()
+            obj:Destroy()
         end
         return obj 
     end
@@ -60,25 +60,25 @@ local function registerObject(obj)
 end
 
 local function setupMarkerControl()
-    local terrain = workspaceFindFirstChildOfClass(Terrain)
+    local terrain = workspace:FindFirstChildOfClass("Terrain")
     if not terrain then return end
     
-    for _, child in pairs(terrainGetChildren()) do
-        if child.Name == MovesetMarker and childIsA(StringValue) then
-            childDestroy()
+    for _, child in pairs(terrain:GetChildren()) do
+        if child.Name == "MovesetMarker" and child:IsA("StringValue") then
+            child:Destroy()
         end
     end
     
-    local marker = Instance.new(StringValue)
-    marker.Name = MovesetMarker
+    local marker = Instance.new("StringValue")
+    marker.Name = "MovesetMarker"
     marker.Value = SCRIPT_ID
     marker.Parent = terrain
     registerObject(marker)
     
-    DebrisAddItem(marker, 30)
+    Debris:AddItem(marker, 30)
     
-    local connection = terrain.ChildAddedConnect(function(child)
-        if child.Name == MovesetMarker and childIsA(StringValue) then
+    local connection = terrain.ChildAdded:Connect(function(child)
+        if child.Name == "MovesetMarker" and child:IsA("StringValue") then
             if child.Value ~= SCRIPT_ID then
                 cleanup()
             end
@@ -95,22 +95,22 @@ setupMarkerControl()
 -- Периодическая проверка маркеров (точная копия с примера)
 task.spawn(function()
     while isAlive do
-        local terrain = workspaceFindFirstChildOfClass(Terrain)
+        local terrain = workspace:FindFirstChildOfClass("Terrain")
         if terrain then
             local markers = {}
-            for _, child in pairs(terrainGetChildren()) do
-                if child.Name == MovesetMarker and childIsA(StringValue) then
+            for _, child in pairs(terrain:GetChildren()) do
+                if child.Name == "MovesetMarker" and child:IsA("StringValue") then
                     table.insert(markers, child)
                 end
             end
             
-            if #markers  1 then
+            if #markers > 1 then
                 local latestTime = 0
                 local latestMarker = nil
                 
                 for _, marker in pairs(markers) do
-                    local markerTime = tonumber(string.match(marker.Value, Moveset_(%d+%.%d+)_)) or 0
-                    if markerTime  latestTime then
+                    local markerTime = tonumber(string.match(marker.Value, "Moveset_(%d+%.%d+)_")) or 0
+                    if markerTime > latestTime then
                         latestTime = markerTime
                         latestMarker = marker
                     end
@@ -131,13 +131,13 @@ local function applyVelocity(part, speed, duration, direction)
     if not part or not isAlive or not part.Parent then return nil end
     
     -- Если direction не указан, используем FORWARD для совместимости
-    direction = direction or FORWARD
+    direction = direction or "FORWARD"
     
     -- Удаляем старые BodyVelocity
-    for _, v in pairs(partGetChildren()) do
-        if vIsA(BodyVelocity) then
+    for _, v in pairs(part:GetChildren()) do
+        if v:IsA("BodyVelocity") then
             registerObject(v)
-            vDestroy()
+            v:Destroy()
         end
     end
 
@@ -153,74 +153,74 @@ local function applyVelocity(part, speed, duration, direction)
     -- Преобразуем строку направления в вектор
     local directionMap = {
         -- Основные направления (8 штук)
-        [FORWARD] = lookVector,
-        [BACKWARD] = -lookVector,
-        [RIGHT] = rightVector,
-        [LEFT] = -rightVector,
-        [UP] = upVector,
-        [DOWN] = -upVector,
+        ["FORWARD"] = lookVector,
+        ["BACKWARD"] = -lookVector,
+        ["RIGHT"] = rightVector,
+        ["LEFT"] = -rightVector,
+        ["UP"] = upVector,
+        ["DOWN"] = -upVector,
         
         -- Диагональные направления (4 штуки)
-        [FORWARD_RIGHT] = (lookVector + rightVector).Unit,
-        [FORWARD_LEFT] = (lookVector - rightVector).Unit,
-        [BACKWARD_RIGHT] = (-lookVector + rightVector).Unit,
-        [BACKWARD_LEFT] = (-lookVector - rightVector).Unit,
+        ["FORWARD_RIGHT"] = (lookVector + rightVector).Unit,
+        ["FORWARD_LEFT"] = (lookVector - rightVector).Unit,
+        ["BACKWARD_RIGHT"] = (-lookVector + rightVector).Unit,
+        ["BACKWARD_LEFT"] = (-lookVector - rightVector).Unit,
         
         -- Вертикально-горизонтальные комбинации (12 штук)
-        [UP_FORWARD] = (upVector + lookVector).Unit,
-        [UP_BACKWARD] = (upVector - lookVector).Unit,
-        [UP_RIGHT] = (upVector + rightVector).Unit,
-        [UP_LEFT] = (upVector - rightVector).Unit,
+        ["UP_FORWARD"] = (upVector + lookVector).Unit,
+        ["UP_BACKWARD"] = (upVector - lookVector).Unit,
+        ["UP_RIGHT"] = (upVector + rightVector).Unit,
+        ["UP_LEFT"] = (upVector - rightVector).Unit,
         
-        [DOWN_FORWARD] = (-upVector + lookVector).Unit,
-        [DOWN_BACKWARD] = (-upVector - lookVector).Unit,
-        [DOWN_RIGHT] = (-upVector + rightVector).Unit,
-        [DOWN_LEFT] = (-upVector - rightVector).Unit,
+        ["DOWN_FORWARD"] = (-upVector + lookVector).Unit,
+        ["DOWN_BACKWARD"] = (-upVector - lookVector).Unit,
+        ["DOWN_RIGHT"] = (-upVector + rightVector).Unit,
+        ["DOWN_LEFT"] = (-upVector - rightVector).Unit,
         
         -- Тройные комбинации (8 штук)
-        [UP_FORWARD_RIGHT] = (upVector + lookVector + rightVector).Unit,
-        [UP_FORWARD_LEFT] = (upVector + lookVector - rightVector).Unit,
-        [UP_BACKWARD_RIGHT] = (upVector - lookVector + rightVector).Unit,
-        [UP_BACKWARD_LEFT] = (upVector - lookVector - rightVector).Unit,
+        ["UP_FORWARD_RIGHT"] = (upVector + lookVector + rightVector).Unit,
+        ["UP_FORWARD_LEFT"] = (upVector + lookVector - rightVector).Unit,
+        ["UP_BACKWARD_RIGHT"] = (upVector - lookVector + rightVector).Unit,
+        ["UP_BACKWARD_LEFT"] = (upVector - lookVector - rightVector).Unit,
         
-        [DOWN_FORWARD_RIGHT] = (-upVector + lookVector + rightVector).Unit,
-        [DOWN_FORWARD_LEFT] = (-upVector + lookVector - rightVector).Unit,
-        [DOWN_BACKWARD_RIGHT] = (-upVector - lookVector + rightVector).Unit,
-        [DOWN_BACKWARD_LEFT] = (-upVector - lookVector - rightVector).Unit,
+        ["DOWN_FORWARD_RIGHT"] = (-upVector + lookVector + rightVector).Unit,
+        ["DOWN_FORWARD_LEFT"] = (-upVector + lookVector - rightVector).Unit,
+        ["DOWN_BACKWARD_RIGHT"] = (-upVector - lookVector + rightVector).Unit,
+        ["DOWN_BACKWARD_LEFT"] = (-upVector - lookVector - rightVector).Unit,
         
         -- Кастомные направления относительно камеры (опционально)
-        [CAMERA_FORWARD] = workspace.CurrentCamera.CFrame.LookVector,
-        [CAMERA_RIGHT] = workspace.CurrentCamera.CFrame.RightVector,
-        [CAMERA_LEFT] = -workspace.CurrentCamera.CFrame.RightVector,
+        ["CAMERA_FORWARD"] = workspace.CurrentCamera.CFrame.LookVector,
+        ["CAMERA_RIGHT"] = workspace.CurrentCamera.CFrame.RightVector,
+        ["CAMERA_LEFT"] = -workspace.CurrentCamera.CFrame.RightVector,
     }
     
     -- Получаем вектор направления
-    local directionVector = directionMap[directionupper()]
+    local directionVector = directionMap[direction:upper()]
     
     -- Если направление не найдено, используем FORWARD как запасной вариант
     if not directionVector then
-        print([Warning] Unknown direction  .. direction .. , using FORWARD)
+        print("[Warning] Unknown direction: " .. direction .. ", using FORWARD")
         directionVector = lookVector
     end
     
     -- Определяем, нужно ли вертикальное усилие
     local maxForceY = 0
-    if directionupper()find(UP) or directionupper()find(DOWN) or 
-       direction == UP or direction == DOWN then
+    if direction:upper():find("UP") or direction:upper():find("DOWN") or 
+       direction == "UP" or direction == "DOWN" then
         maxForceY = 350000
     end
     
     -- Создаем BodyVelocity
-    local bv = Instance.new(BodyVelocity)
+    local bv = Instance.new("BodyVelocity")
     bv.MaxForce = Vector3.new(350000, maxForceY, 350000)
-    bv.Velocity = directionVector  speed
+    bv.Velocity = directionVector * speed
     bv.Parent = part
     registerObject(bv)
     
     -- Автоматическое удаление через duration секунд
     task.delay(duration, function()
         if bv and bv.Parent and isAlive then
-            bvDestroy()
+            bv:Destroy()
         end
     end)
     
@@ -232,11 +232,11 @@ end
 local CFG = {
     -- Переименование скиллов в интерфейсе
     renames = {
-        [skill1] = Flawless Fake Volley, 
-        [skill2] = CR7 Control,
-        [skill3] = Bicycle Kick,
-        [skill4] = CR7 Dribble,
-        [skill5] = Turn Shot,
+        ["skill1"] = "Flawless Fake Volley", 
+        ["skill2"] = "CR7 Control",
+        ["skill3"] = "Bicycle Kick",
+        ["skill4"] = "CR7 Dribble",
+        ["skill5"] = "Turn Shot",
     }
 }
 
@@ -247,24 +247,24 @@ local function renameSkillsInHotbar()
     task.wait(1) -- Ждем загрузки интерфейса
     
     -- Ждем, пока игрок не выйдет из лобби (если есть такая механика)
-    repeat task.wait() until plr.Team and plr.Team.Name ~= lobby
+    repeat task.wait() until plr.Team and plr.Team.Name ~= "lobby"
     task.wait(0.5)
     
-    local hotbar = plr.PlayerGuiWaitForChild(Hotbar, 10)
+    local hotbar = plr.PlayerGui:WaitForChild("Hotbar", 10)
     if hotbar and isAlive then
-        local backpack = hotbarFindFirstChild(Backpack)
+        local backpack = hotbar:FindFirstChild("Backpack")
         if backpack then
-            local hotbarFrame = backpackFindFirstChild(Hotbar)
+            local hotbarFrame = backpack:FindFirstChild("Hotbar")
             if hotbarFrame then
                 for slotName, newName in pairs(CFG.renames) do
-                    local skillFrame = hotbarFrameFindFirstChild(slotName)
+                    local skillFrame = hotbarFrame:FindFirstChild(slotName)
                     if skillFrame then
-                        local base = skillFrameFindFirstChild(Base)
+                        local base = skillFrame:FindFirstChild("Base")
                         if base then
-                            local toolName = baseFindFirstChild(ToolName)
+                            local toolName = base:FindFirstChild("ToolName")
                             if toolName then
                                 toolName.Text = newName
-                                print([Skill Renamer] Renamed  .. slotName ..  to  .. newName)
+                                print("[Skill Renamer] Renamed " .. slotName .. " to: " .. newName)
                             end
                         end
                     end
@@ -278,34 +278,34 @@ end
 local function hasball()
     local character = plr.Character
     if not character then return false end
-    return characterFindFirstChild(Ball) ~= nil
+    return character:FindFirstChild("Ball") ~= nil
 end
 
 -- СОБСТВЕННО СКРИПТ ДЛЯ АНИМАЦИЙ
 local ronaldo = ReplicatedStorage.Resources.ronaldo
-local TPsound = ReplicatedStorage.Resources.oldnagiFindFirstChild(catch ball)
-local TPanim = ReplicatedStorage.Resources.oldnagiFindFirstChild(skill2hit)
-local AwkSound = ronaldoFindFirstChild(Ronaldo awk (1))
+local TPsound = ReplicatedStorage.Resources.oldnagi:FindFirstChild("catch ball")
+local TPanim = ReplicatedStorage.Resources.oldnagi:FindFirstChild("skill2hit")
+local AwkSound = ronaldo:FindFirstChild("Ronaldo awk (1)")
 local AWKanim = ronaldo.newawk
 local dribblesound = ronaldo.RonaldoDribble
 local dribbleanim = ronaldo.running
-local awkmusic = ronaldoFindFirstChild(0508)
+local awkmusic = ronaldo:FindFirstChild("0508")
 local bicyclekickSound = ronaldo.KICK
 local bicyclekickAnim = ronaldo.BicycleKick
-local catchSound = ReplicatedStorage.Resources.oldnagiFindFirstChild(catch ball)
-local catchAnim = ReplicatedStorage.Resources.oldnagiFindFirstChild(skill2hit)
+local catchSound = ReplicatedStorage.Resources.oldnagi:FindFirstChild("catch ball")
+local catchAnim = ReplicatedStorage.Resources.oldnagi:FindFirstChild("skill2hit")
 -- Функция для воспроизведения звуков
 local function sfx(sound, part, volume,TimePos)
     if not isAlive then return nil end
     
-    local s = soundClone()
+    local s = sound:Clone()
     s.Parent = part
     s.Volume = volume or 1
     s.TimePosition = TimePos or 0
-    sPlay()
+    s:Play()
     
     local soundLength = s.TimeLength
-    DebrisAddItem(s, soundLength + 15)
+    Debris:AddItem(s, soundLength + 15)
     registerObject(s)
     
     return s
@@ -313,62 +313,62 @@ end
 
 -- Функция конвертации ID
 local function convert(id)
-    return rbxassetid .. id
+    return "rbxassetid://" .. id
 end
 
 -- Таблица обработчиков анимаций
 local animationHandlers = {
-    [77370115011368] = {
-        name = ControlDefault,
+    ["77370115011368"] = {
+        name = "ControlDefault",
         handler = function(character)
             if not isAlive then return end
             -- Воспроизводим звук
-            applyVelocity(character.HumanoidRootPart, 140, 0.5,FORWARD)
+            applyVelocity(character.HumanoidRootPart, 140, 0.5,"FORWARD")
             task.wait(0.2)
-            applyVelocity(character.HumanoidRootPart, 170, 1.5,FORWARD)
+            applyVelocity(character.HumanoidRootPart, 170, 1.5,"FORWARD")
             -- Возвращаем кулдаун в секундах
             return 0
         end
     },
-    [126533399242044] = {
-        name = ControlAir,
+    ["126533399242044"] = {
+        name = "ControlAir",
         handler = function(character)
             if not isAlive then return end
             sfx(catchSound, game.SoundService, 10)
-            local anim = character.HumanoidLoadAnimation(catchAnim)
-            animPlay()
+            local anim = character.Humanoid:LoadAnimation(catchAnim)
+            anim:Play()
             -- Возвращаем кулдаун в секундах
             return 0
         end
     },
-    [80063325550268] = {
-        name = KickHeavy,
+    ["80063325550268"] = {
+        name = "KickHeavy",
         handler = function(character)
             if not isAlive then return end
             sfx(bicyclekickSound, game.SoundService, 15,0.5)
-            local anim = character.HumanoidLoadAnimation(bicyclekickAnim)
-            animPlay()
+            local anim = character.Humanoid:LoadAnimation(bicyclekickAnim)
+            anim:Play()
             anim.TimePosition = 0.5
             registerObject(anim)
             return 0
         end
     },
-    [80140996064733] = {
-        name = Awakening,
+    ["80140996064733"] = {
+        name = "Awakening",
         handler = function(character)
             if not isAlive then return end
             sfx(AwkSound, game.SoundService, 10)
             
             -- Загружаем и воспроизводим анимацию
-            local anim = character.HumanoidLoadAnimation(AWKanim)
-            animPlay()
+            local anim = character.Humanoid:LoadAnimation(AWKanim)
+            anim:Play()
             registerObject(anim)
             -- Возвращаем кулдаун в секундах
             return 0
         end
     },
-    [82929375261557] = {
-        name = Jumping Turn,
+    ["82929375261557"] = {
+        name = "Jumping Turn",
         handler = function(character)
             if not isAlive then return end
 
@@ -376,25 +376,25 @@ local animationHandlers = {
             return 0
         end
     },
-    [71640109646843] = {
-        name = Fooling,
+    ["71640109646843"] = {
+        name = "Fooling",
         handler = function(character)
             if not isAlive or not hasball() then return end
-            local anim = character.HumanoidLoadAnimation(dribbleanim)
-            animPlay()
+            local anim = character.Humanoid:LoadAnimation(dribbleanim)
+            anim:Play()
             registerObject(anim)
-            applyVelocity(character.HumanoidRootPart, 160, 0.15,FORWARD)
+            applyVelocity(character.HumanoidRootPart, 160, 0.15,"FORWARD")
             task.wait(0.15)
-            applyVelocity(character.HumanoidRootPart, 80, 0.05,BACKWARD)
+            applyVelocity(character.HumanoidRootPart, 80, 0.05,"BACKWARD")
             task.wait(0.7)
-            animStop(0)
+            anim:Stop(0)
             -- Возвращаем кулдаун в секундах
             return 0
         end
     },
-    -- Добавьте другие анимации по шаблону
-    -- [ANIMATION_ID] = {
-    --     name = Имя анимации,
+    -- Добавьте другие анимации по шаблону:
+    -- ["ANIMATION_ID"] = {
+    --     name = "Имя анимации",
     --     handler = function(character)
     --         -- Ваш код здесь
     --         return cooldown -- время кулдауна в секундах
@@ -405,7 +405,7 @@ local animationHandlers = {
 -- Система кулдаунов
 local animationCooldowns = {}
 local activeAnimations = {}
-local DEBUG = true
+local DEBUG = false
 -- Основная функция проверки анимаций
 local function checkAnimations()
     -- Отладочный вывод текущих анимаций
@@ -413,11 +413,11 @@ local function checkAnimations()
         if not DEBUG then return end
         while task.wait(0.5) and isAlive do
             local character = plr.Character
-            if character and characterFindFirstChild(Humanoid) then
+            if character and character:FindFirstChild("Humanoid") then
                 local humanoid = character.Humanoid
-                for i, animTrack in pairs(humanoidGetPlayingAnimationTracks()) do
+                for i, animTrack in pairs(humanoid:GetPlayingAnimationTracks()) do
                     if animTrack.Animation and animTrack.Animation.AnimationId then
-                        print([Debug] Animation  .. animTrack.Animation.AnimationId ..   Track  .. i)
+                        print("[Debug] Animation: " .. animTrack.Animation.AnimationId .. " | Track: " .. i)
                     end
                 end
             end
@@ -426,22 +426,22 @@ local function checkAnimations()
     
     while isAlive do
         local character = plr.Character
-        if character and characterFindFirstChild(Humanoid) then
+        if character and character:FindFirstChild("Humanoid") then
             local humanoid = character.Humanoid
             
             -- Получаем текущие анимации
-            for _, animTrack in pairs(humanoidGetPlayingAnimationTracks()) do
+            for _, animTrack in pairs(humanoid:GetPlayingAnimationTracks()) do
                 if animTrack.Animation and animTrack.Animation.AnimationId then
-                    local animId = string.match(animTrack.Animation.AnimationId, rbxassetid(%d+))
+                    local animId = string.match(animTrack.Animation.AnimationId, "rbxassetid://(%d+)")
                     
                     -- Если это новая анимация и она есть в нашем списке
                     if animId and animationHandlers[animId] and not activeAnimations[animId] then
                         activeAnimations[animId] = true
                         
                         -- Проверяем кулдаун
-                        if not animationCooldowns[animId] or animationCooldowns[animId]  os.time() then
+                        if not animationCooldowns[animId] or animationCooldowns[animId] < os.time() then
                             local handlerInfo = animationHandlers[animId]
-                            print([Animation Handler] Found animation  .. handlerInfo.name)
+                            print("[Animation Handler] Found animation: " .. handlerInfo.name)
                             
                             -- Выполняем обработчик
                             local cooldown = handlerInfo.handler(character)
@@ -465,9 +465,9 @@ local function checkAnimations()
             -- Очищаем отслеживаемые анимации которые перестали играть
             for animId, _ in pairs(activeAnimations) do
                 local isPlaying = false
-                for _, animTrack in pairs(humanoidGetPlayingAnimationTracks()) do
+                for _, animTrack in pairs(humanoid:GetPlayingAnimationTracks()) do
                     if animTrack.Animation and animTrack.Animation.AnimationId then
-                        local trackId = string.match(animTrack.Animation.AnimationId, rbxassetid(%d+))
+                        local trackId = string.match(animTrack.Animation.AnimationId, "rbxassetid://(%d+)")
                         if trackId == animId then
                             isPlaying = true
                             break
@@ -484,7 +484,7 @@ local function checkAnimations()
         -- Очищаем старые кулдауны
         local currentTime = os.time()
         for animId, cooldownUntil in pairs(animationCooldowns) do
-            if cooldownUntil  currentTime then
+            if cooldownUntil < currentTime then
                 animationCooldowns[animId] = nil
             end
         end
@@ -502,18 +502,18 @@ local function loadCharacter(char)
     renameSkillsInHotbar()
     
     -- Можете добавить другие действия при загрузке персонажа здесь
-    print([Character Loaded] Ready to track animations)
+    print("[Character Loaded] Ready to track animations")
 end
 
 -- Подключение событий
-registerConnection(game.Players.PlayerRemovingConnect(function(player)
+registerConnection(game.Players.PlayerRemoving:Connect(function(player)
     if player == plr then
         cleanup()
     end
 end))
 
 -- Подключение события добавления персонажа (как в примере)
-registerConnection(plr.CharacterAddedConnect(function(char)
+registerConnection(plr.CharacterAdded:Connect(function(char)
     if isAlive then
         loadCharacter(char)
     end
@@ -530,17 +530,17 @@ end
 
 local function Kick(power,root)
     local args = {
-        buffer.fromstring(035001),
+        buffer.fromstring("\035\001"),
         {
             {
-                kick,
+                "kick",
                 power,
                 false,
-                root.CFrame.LookVector + Vector3.new(0, 0.005, 0)  10
+                root.CFrame.LookVector + Vector3.new(0, 0.005, 0) * 10
             }
         }
     }
-	gameGetService(ReplicatedStorage)WaitForChild(ByteNetReliable)FireServer(unpack(args))
+	game:GetService("ReplicatedStorage"):WaitForChild("ByteNetReliable"):FireServer(unpack(args))
 end
 -- Запуск основной функции проверки анимаций
 task.spawn(checkAnimations)
@@ -580,8 +580,8 @@ local activeCustomFrames = {}
 -- Функция создания пользовательского кулдаун-фрейма
 local function createCustomCooldownFrame(parentFrame, skillNumber, frameId)
     -- Создаем новый фрейм
-    local customFrame = Instance.new(Frame)
-    customFrame.Name = CustomCooldown_ .. frameId
+    local customFrame = Instance.new("Frame")
+    customFrame.Name = "CustomCooldown_" .. frameId
     customFrame.BackgroundColor3 = Color3.fromRGB(138, 43, 226) -- Фиолетовый цвет
     customFrame.BackgroundTransparency = 0.3
     customFrame.BorderSizePixel = 0
@@ -592,12 +592,12 @@ local function createCustomCooldownFrame(parentFrame, skillNumber, frameId)
     customFrame.Parent = parentFrame
     
     -- Добавляем скругление углов
-    local corner = Instance.new(UICorner)
+    local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 4)
     corner.Parent = customFrame
     
     -- Добавляем градиент
-    local gradient = Instance.new(UIGradient)
+    local gradient = Instance.new("UIGradient")
     gradient.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, Color3.fromRGB(138, 43, 226)),
         ColorSequenceKeypoint.new(0.5, Color3.fromRGB(153, 51, 255)),
@@ -623,8 +623,8 @@ end
 -- Функция очистки старых фреймов для определенного скилла
 local function cleanupOldFramesForSkill(skillNumber)
     for frameId, frameData in pairs(activeCustomFrames) do
-        if frameData.skillNumber == skillNumber and frameData.frame and frameData.frameIsDescendantOf(game) then
-            frameData.frameDestroy()
+        if frameData.skillNumber == skillNumber and frameData.frame and frameData.frame:IsDescendantOf(game) then
+            frameData.frame:Destroy()
             activeCustomFrames[frameId] = nil
         end
     end
@@ -634,16 +634,16 @@ end
 local function updateCooldownUI(skillNumber, cooldownDuration, frameId)
     if not isAlive then return end
     
-    local hotbar = plr.PlayerGuiFindFirstChild(Hotbar)
+    local hotbar = plr.PlayerGui:FindFirstChild("Hotbar")
     if not hotbar then return end
     
-    local backpack = hotbarFindFirstChild(Backpack)
+    local backpack = hotbar:FindFirstChild("Backpack")
     if not backpack then return end
     
-    local hotbarFrame = backpackFindFirstChild(Hotbar)
+    local hotbarFrame = backpack:FindFirstChild("Hotbar")
     if not hotbarFrame then return end
     
-    local skillFrame = hotbarFrameFindFirstChild(skill .. skillNumber)
+    local skillFrame = hotbarFrame:FindFirstChild("skill" .. skillNumber)
     if not skillFrame then return end
     
     -- Создаем НОВЫЙ кастомный фрейм
@@ -663,11 +663,11 @@ local function updateCooldownUI(skillNumber, cooldownDuration, frameId)
         0
     )
     
-    local tween = game.TweenServiceCreate(customFrame, tweenInfo, {
+    local tween = game.TweenService:Create(customFrame, tweenInfo, {
         Size = UDim2.new(1, 0, 0, 0)
     })
     
-    tweenPlay()
+    tween:Play()
     
     -- Сохраняем твин в данных фрейма
     frameData.tween = tween
@@ -677,15 +677,15 @@ local function updateCooldownUI(skillNumber, cooldownDuration, frameId)
         if not isAlive then return end
         
         -- Проверяем, существует ли еще этот фрейм
-        if frameData.frame and frameData.frameIsDescendantOf(game) then
+        if frameData.frame and frameData.frame:IsDescendantOf(game) then
             -- Останавливаем твин, если он еще работает
             if frameData.tween then
-                frameData.tweenCancel()
+                frameData.tween:Cancel()
                 frameData.tween = nil
             end
             
             -- Удаляем фрейм
-            frameData.frameDestroy()
+            frameData.frame:Destroy()
         end
         
         -- Удаляем из таблицы активных фреймов
@@ -706,14 +706,14 @@ local skillFunctions = {
         -- Оглушаем персонажа
         character.state.stun.Value = true
         
-        local root = characterFindFirstChild(HumanoidRootPart) or character.PrimaryPart
+        local root = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
         if not root then 
             character.state.stun.Value = false
             return 5 
         end
         sfx(dribblesound, game.SoundService, 10,1.85)
-        local anim = character.HumanoidLoadAnimation(dribbleanim)
-        animPlay()
+        local anim = character.Humanoid:LoadAnimation(dribbleanim)
+        anim:Play()
         anim.TimePosition = 1.85
         applyVelocity(character.HumanoidRootPart, 120, 0.3)
         task.wait(0.2)
@@ -749,12 +749,12 @@ local skillFunctions = {
 }
 
 -- Основной обработчик нажатий
-registerConnection(gameGetService(UserInputService).InputBeganConnect(function(input, gameProcessed)
+registerConnection(game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if not isAlive then return end
     
     local character = plr.Character
-    if not character or not characterFindFirstChild(state) then return end
+    if not character or not character:FindFirstChild("state") then return end
     
     -- Определяем номер скилла
     local skillNumber
@@ -775,22 +775,22 @@ registerConnection(gameGetService(UserInputService).InputBeganConnect(function(i
     -- Получаем функцию скилла
     local skillFunc = skillFunctions[skillNumber]
     
-    -- ПРОВЕРКА 1 Если функции скилла нет - ОРИГИНАЛЬНЫЙ СКИЛЛ РАБОТАЕТ
+    -- ПРОВЕРКА 1: Если функции скилла нет - ОРИГИНАЛЬНЫЙ СКИЛЛ РАБОТАЕТ
     if not skillFunc then
-        print([Skill System] No function for skill, skillNumber, - allowing original)
+        print("[Skill System] No function for skill", skillNumber, "- allowing original")
         return  -- Пропускаем, оригинальный скилл сработает
     end
     
-    -- ПРОВЕРКА 2 Условие мяча
+    -- ПРОВЕРКА 2: Условие мяча
     if not checkBallCondition(skillNumber) then
         -- Условие не выполнено - ОРИГИНАЛЬНЫЙ СКИЛЛ РАБОТАЕТ
-        print([Skill System] Ball condition not met for skill, skillNumber, - allowing original)
+        print("[Skill System] Ball condition not met for skill", skillNumber, "- allowing original")
         return  -- Пропускаем, оригинальный скилл сработает
     end
     -- Проверка кулдауна
     local currentTime = os.time()
-    if cooldownEndTimes[skillNumber] and cooldownEndTimes[skillNumber]  currentTime then
-        print([Skill System] Skill, skillNumber, on cooldown - blocking original)
+    if cooldownEndTimes[skillNumber] and cooldownEndTimes[skillNumber] > currentTime then
+        print("[Skill System] Skill", skillNumber, "on cooldown - blocking original")
         -- Блокируем оригинальный скилл
         task.spawn(function()
             character.state.stun.Value = true
@@ -811,7 +811,7 @@ registerConnection(gameGetService(UserInputService).InputBeganConnect(function(i
 
     -- Дополнительная проверка (если другой скрипт уже установил стан)
     if character.state.stun.Value == true then 
-        print([Skill System] Character is stunned - skipping)
+        print("[Skill System] Character is stunned - skipping")
         return 
     end
     if customActive then
@@ -821,17 +821,17 @@ registerConnection(gameGetService(UserInputService).InputBeganConnect(function(i
     -- ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ - ЗАПУСКАЕМ КАСТОМНЫЙ СКИЛЛ
     
     -- Создаем уникальный ID для нового фрейма
-    local frameId = cd_ .. skillNumber .. _ .. os.time() .. _ .. math.random(1000, 9999)
+    local frameId = "cd_" .. skillNumber .. "_" .. os.time() .. "_" .. math.random(1000, 9999)
     
     -- Создаем новый кастомный кулдаун-фрейм (сначала без знания времени кулдауна)
     -- Будем обновлять его после получения времени кулдауна
-    local hotbar = plr.PlayerGuiFindFirstChild(Hotbar)
+    local hotbar = plr.PlayerGui:FindFirstChild("Hotbar")
     if hotbar then
-        local backpack = hotbarFindFirstChild(Backpack)
+        local backpack = hotbar:FindFirstChild("Backpack")
         if backpack then
-            local hotbarFrame = backpackFindFirstChild(Hotbar)
+            local hotbarFrame = backpack:FindFirstChild("Hotbar")
             if hotbarFrame then
-                local skillFrame = hotbarFrameFindFirstChild(skill .. skillNumber)
+                local skillFrame = hotbarFrame:FindFirstChild("skill" .. skillNumber)
                 if skillFrame then
                     -- Очищаем старые фреймы для этого скилла
                     cleanupOldFramesForSkill(skillNumber)
@@ -855,10 +855,10 @@ registerConnection(gameGetService(UserInputService).InputBeganConnect(function(i
         end)
         
         if not success then
-            warn([Skill System] Error in skill, skillNumber,cooldownDuration)
+            warn("[Skill System] Error in skill", skillNumber,cooldownDuration)
             -- При ошибке удаляем фрейм
             if activeCustomFrames[frameId] and activeCustomFrames[frameId].frame then
-                activeCustomFrames[frameId].frameDestroy()
+                activeCustomFrames[frameId].frame:Destroy()
                 activeCustomFrames[frameId] = nil
             end
             return
@@ -873,7 +873,7 @@ registerConnection(gameGetService(UserInputService).InputBeganConnect(function(i
             
             -- Останавливаем старый твин, если есть
             if activeCustomFrames[frameId].tween then
-                activeCustomFrames[frameId].tweenCancel()
+                activeCustomFrames[frameId].tween:Cancel()
             end
             
             -- Запускаем новый твин с правильным временем
@@ -886,17 +886,17 @@ registerConnection(gameGetService(UserInputService).InputBeganConnect(function(i
                 0
             )
             
-            local tween = game.TweenServiceCreate(customFrame, tweenInfo, {
+            local tween = game.TweenService:Create(customFrame, tweenInfo, {
                 Size = UDim2.new(1, 0, 0, 0)
             })
             
-            tweenPlay()
+            tween:Play()
             activeCustomFrames[frameId].tween = tween
             
             -- Удаляем фрейм после кулдауна
             task.delay(cooldownDuration + 0.1, function()
                 if isAlive and activeCustomFrames[frameId] and activeCustomFrames[frameId].frame then
-                    activeCustomFrames[frameId].frameDestroy()
+                    activeCustomFrames[frameId].frame:Destroy()
                     activeCustomFrames[frameId] = nil
                 end
             end)
@@ -909,10 +909,10 @@ registerConnection(gameGetService(UserInputService).InputBeganConnect(function(i
             end
         end)
         
-        print([Skill System] Skill, skillNumber, executed with cooldown, cooldownDuration)
+        print("[Skill System] Skill", skillNumber, "executed with cooldown:", cooldownDuration)
     end)
     
-    print([Skill System] Custom skill, skillNumber, activated with frame ID, frameId)
+    print("[Skill System] Custom skill", skillNumber, "activated with frame ID:", frameId)
 end))
 
 -- Функция для принудительного сброса всех кулдаунов
@@ -923,14 +923,14 @@ local function resetAllCooldowns()
         -- Очищаем все кастомные фреймы для этого скилла
         cleanupOldFramesForSkill(i)
     end
-    print([Skill System] All cooldowns and custom frames reset)
+    print("[Skill System] All cooldowns and custom frames reset")
 end
 
--- Функция для добавленияобновления скилла
+-- Функция для добавления/обновления скилла
 local function setSkillFunction(skillNumber, func)
-    if skillNumber = 1 and skillNumber = 5 then
+    if skillNumber >= 1 and skillNumber <= 5 then
         skillFunctions[skillNumber] = func
-        print([Skill System] Updated function for skill, skillNumber)
+        print("[Skill System] Updated function for skill", skillNumber)
         return true
     end
     return false
@@ -938,9 +938,9 @@ end
 
 -- Функция для установки условия мяча для скилла
 local function setSkillBallCondition(skillNumber, condition)
-    if skillNumber = 1 and skillNumber = 5 then
+    if skillNumber >= 1 and skillNumber <= 5 then
         skillBallConditions[skillNumber] = condition
-        print([Skill System] Updated ball condition for skill, skillNumber, to, condition)
+        print("[Skill System] Updated ball condition for skill", skillNumber, "to:", condition)
         return true
     end
     return false
@@ -959,7 +959,7 @@ local function getActiveCustomFrames()
             id = frameId,
             skillNumber = frameData.skillNumber,
             created = frameData.created,
-            alive = frameData.frame and frameData.frameIsDescendantOf(game)
+            alive = frameData.frame and frameData.frame:IsDescendantOf(game)
         })
     end
     return result
@@ -979,11 +979,11 @@ cleanup = function()
 end
 
 -- Уведомление о загрузке
-game.StarterGuiSetCore(SendNotification, {
-    Title = Ronaldo V2.5 Style Loaded,
-    Text = SUI but nagi,
+game.StarterGui:SetCore("SendNotification", {
+    Title = "Ronaldo V2.5 Style Loaded",
+    Text = "SUI but nagi",
     Duration = 5,
-    Button1 = yea boi,
+    Button1 = "yea boi",
 })
 
 -- Экспорт функций для внешнего использования
