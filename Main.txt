@@ -112,6 +112,12 @@ local IsagiExe = MovesetsTab:CreateButton({
       loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/PoorExeStyle.txt",true))()
    end,
 })
+local Messi = MovesetsTab:CreateButton({
+   Name = "Messi (needs nagi, he has almost all custom anims lol)",
+   Callback = function()
+      loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/MessiStyle.txt",true))()
+   end,
+})
 local Divider = MovesetsTab:CreateDivider()
 local ClearMovesetsButton = MovesetsTab:CreateButton({
    Name = "Clear all custom movesets",
