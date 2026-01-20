@@ -124,6 +124,12 @@ local Sonic = MovesetsTab:CreateButton({
       loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/SonicStyle.txt",true))()
    end,
 })
+local LokiV2 = MovesetsTab:CreateButton({
+   Name = "LokiV2 (needs isagi and this is peak)",
+   Callback = function()
+      loadstring(game:HttpGet("https://raw.githubusercontent.com/DrenMator/DrenALScriptYeah/refs/heads/main/LokiV2Style.txt",true))()
+   end,
+})
 local Divider = MovesetsTab:CreateDivider()
 local ClearMovesetsButton = MovesetsTab:CreateButton({
    Name = "Clear all custom movesets",
